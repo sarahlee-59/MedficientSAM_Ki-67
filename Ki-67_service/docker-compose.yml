@@ -1,0 +1,23 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    restart: unless-stopped
+    volumes:
+      - /mnt/Disk1/sylee/deployment:/models:ro
+    environment:
+      - ONNX_DIR=/models
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+    restart: unless-stopped

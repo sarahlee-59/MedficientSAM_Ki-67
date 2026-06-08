@@ -1,0 +1,68 @@
+# 환경변수 (실제 값 포함)
+.env
+frontend/.env.local
+
+# 모델 가중치
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+weights/
+checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 업로드 / 결과
+uploads/
+outputs/
+results/
+*.log
+
+# 빌드 산출물 / 테스트 파일
+backend/result_vis.png
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Hydra 로컬 설정 (머신별 설정, 공유 불가)
+configs/local/
+
+# 프론트엔드 별도 git
+frontend/.git/
+weights/
+.vercel
+.env*.local
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env#
+
+# Backups
+*.bak
+*.save
+
+# ONNX 모델 파일 (GitHub Releases로 배포 — README 참고)
+frontend/public/models/
+deployment/*.onnx

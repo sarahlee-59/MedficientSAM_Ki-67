@@ -1,0 +1,8 @@
+.next
+node_modules
+.git
+.vercel
+Downloading
+Overwriting
+public/models/encoder.onnx
+public/models/decoder.onnx

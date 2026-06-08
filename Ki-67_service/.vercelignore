@@ -1,0 +1,16 @@
+weights/
+backend/
+src/
+*.pt
+*.ckpt
+*.pth
+*.bin
+*.safetensors
+Dockerfile*
+docker-compose*
+start*.sh
+.env*
+__pycache__/
+*.pyc
+frontend/public/models/encoder.onnx
+frontend/public/models/decoder.onnx
