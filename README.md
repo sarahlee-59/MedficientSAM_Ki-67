@@ -80,9 +80,9 @@ bash train_scripts/distill_l1.sh
 # → 8 epochs, AdamW, WandB 로깅
 ```
 
-### 2단계: Fine-tuning (Ki-67 핵 데이터 — **사수 진행**)
+### 2단계: Fine-tuning (Ki-67 핵 데이터)
 
-> Fine-tuning 설계 및 실행은 사수가 담당했습니다.
+> Fine-tuning 설계 및 실행은 별도로 진행됐습니다.
 
 Distill된 encoder + SAM decoder를 병리 핵 데이터로 파인튜닝. 두 가지 조합으로 실험:
 
@@ -124,7 +124,7 @@ python src/export_onnx.py experiment=export_finetuned_l1_onnx output_dir=weights
 > 논문이 11개 모달리티를 사용했다고 명시되어 있어 동일하게 구성하려 했으나, 공식 Drive에 CT와 Dermoscopy가 빠져 있었습니다.  
 > 챌린지 공식 홈페이지에 새롭게 추가된 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보했습니다.  
 > - **CT**: Google Sheet 경유, 챌린지 주최 측이 변환한 NPZ를 그대로 사용  
-> - **Dermoscopy**: Google Sheet에서 원본 이미지 다운로드 → 사수가 stride 128, crop 256×256 tiling 후 NPZ 생성  
+> - **Dermoscopy**: Google Sheet에서 원본 이미지 다운로드 → stride 128, crop 256×256 tiling 후 NPZ 생성  
 > - **TotalSegmentator 선정 이유**: 전신 117개 부위를 단일 데이터셋으로 커버하여 CT 학습 범위를 극대화
 
 ```
@@ -156,9 +156,9 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 |--------|------------|------|
 | Endoscopy, Fundus, MR, OCT 등 9개 모달리티 | 챌린지 주최 측 배포 NPZ | [MedSAM 공식 레포](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM) |
 | CT 5종 | 챌린지 주최 측 (Google Sheet 경유) | 이미 NPZ 형태 제공 |
-| Dermoscopy (ISIC-2017) | **사수** | Google Sheet 원본 → stride 128, 256×256 tiling → NPZ |
-| PanNuke | **사수** | tiling 없이 256×256 resize → NPZ |
-| MoNuSeg 2018 | **사수** | 1000×1000 → 2×2 crop → 256×256 resize → NPZ |
+| Dermoscopy (ISIC-2017) | 내부 전처리 | Google Sheet 원본 → stride 128, 256×256 tiling → NPZ |
+| PanNuke | 내부 전처리 | tiling 없이 256×256 resize → NPZ |
+| MoNuSeg 2018 | 내부 전처리 | 1000×1000 → 2×2 crop → 256×256 resize → NPZ |
 | Ki-67 슬라이드 (`gts_npz_s128/`) | 자체 병리 파이프라인 | 256×256, stride 128 — `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` |
 
 ---

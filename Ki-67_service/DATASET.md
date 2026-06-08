@@ -26,7 +26,7 @@
 | 경로 | 포함 데이터 | 비고 |
 |------|------------|------|
 | [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs) | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지 주최 측이 NPZ로 변환하여 배포 |
-| [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | CT 전체, Dermoscopy (ISIC-2017) | 원본 데이터 링크 제공 — **CT는 NPZ로 다운로드, Dermoscopy는 원본 이미지를 사수가 tiling하여 NPZ 생성** |
+| [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | CT 전체, Dermoscopy (ISIC-2017) | 원본 데이터 링크 제공 — **CT는 NPZ로 다운로드, Dermoscopy는 원본 이미지를 tiling하여 NPZ 생성** |
 
 ### 구성
 
@@ -37,7 +37,7 @@
 | CT | COVID-19-20 | 199 | 공식 Drive 미포함 — 스프레드시트 경유 |
 | CT | KiTS23 | 489 | 공식 Drive 미포함 — 스프레드시트 경유 |
 | CT | TotalSegmentator | 1,174 | 공식 Drive 미포함 — 스프레드시트 경유. **전신 117개 부위를 단일 데이터셋으로 커버**하여 CT 학습 범위를 극대화하기 위해 선정 |
-| Dermoscopy | ISIC-2017 | 2,000 | 공식 Drive 미포함. Sheet에서 원본 다운로드 → **사수가 stride 128, crop 256×256 tiling 후 NPZ 생성** |
+| Dermoscopy | ISIC-2017 | 2,000 | 공식 Drive 미포함. Sheet에서 원본 다운로드 → **stride 128, crop 256×256 tiling 후 NPZ 생성** |
 | Endoscopy | CholecSeg8k | 10,117 | |
 | Endoscopy | Kvasir-SEG | 1,000 | |
 | Endoscopy | m2caiSeg | 1,807 | |
@@ -72,7 +72,7 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 
 ## 2. Ki-67 병리 데이터셋 및 Fine-tuning
 
-> Fine-tuning 전체 과정은 **사수가 설계·진행**했습니다.
+> Fine-tuning 전체 과정은 **별도로 설계·진행**됐습니다.
 
 ### 경로
 
@@ -104,7 +104,7 @@ data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...
 
 ### 공개 병리 보조 데이터
 
-두 데이터셋 모두 **사수가 NPZ로 변환하여 제공**했습니다.
+두 데이터셋 모두 **NPZ로 변환하여 제공**됐습니다.
 
 | 데이터셋 | 설명 | 패치 수 | 전처리 방법 |
 |----------|------|---------|------------|
@@ -152,9 +152,9 @@ data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...
 |--------|------------|------|----------|
 | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | CVPR 2024 MedSAM 챌린지 주최 측 | 이미 NPZ 형태로 배포 | [MedSAM/LiteMedSAM 공식 레포](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM) (`pre_grey_rgb.py`) |
 | CT (AbdomenCT-1K, AMOS22, COVID-19-20, KiTS23, TotalSegmentator) | 챌린지 주최 측 (Google Sheet 경유 다운로드) | 이미 NPZ 형태로 제공 | 위 MedSAM 레포 동일 (`pre_CT_MR.py`) |
-| Dermoscopy — ISIC-2017 (`ISIC-2017_Training_Part1_gts_npz/`) | **사수** | Google Sheet에서 원본 이미지 다운로드 → **stride 128, crop 256×256 sliding window tiling** → NPZ | 별도 스크립트 (이 레포 미포함) |
-| PanNuke (`Cancer(PanNuke)_gts_npz/`) | **사수** | 원본 이미지 → **tiling 없이 256×256 resize** → NPZ | 별도 스크립트 (이 레포 미포함) |
-| MoNuSeg 2018 (`MoNuSeg2018_gts_npz/`) | **사수** | 원본 1000×1000 → **2×2 crop (4패치) → 256×256 resize** → NPZ | 별도 스크립트 (이 레포 미포함) |
+| Dermoscopy — ISIC-2017 (`ISIC-2017_Training_Part1_gts_npz/`) | 내부 전처리 | Google Sheet에서 원본 이미지 다운로드 → **stride 128, crop 256×256 sliding window tiling** → NPZ | 별도 스크립트 (이 레포 미포함) |
+| PanNuke (`Cancer(PanNuke)_gts_npz/`) | 내부 전처리 | 원본 이미지 → **tiling 없이 256×256 resize** → NPZ | 별도 스크립트 (이 레포 미포함) |
+| MoNuSeg 2018 (`MoNuSeg2018_gts_npz/`) | 내부 전처리 | 원본 1000×1000 → **2×2 crop (4패치) → 256×256 resize** → NPZ | 별도 스크립트 (이 레포 미포함) |
 | Ki-67 IHC 슬라이드 (`gts_npz_s128/`) | 자체 병리 전처리 파이프라인 | 256×256 패치, stride 128 sliding window | `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` (별도 프로젝트) |
 
 ### 주최 측 전처리 상세 (`pre_grey_rgb.py` / `pre_CT_MR.py`)
