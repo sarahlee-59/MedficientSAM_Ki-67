@@ -9,32 +9,49 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 
 ```
 .
-├── medficientsam/          # 학습 프레임워크 (Distillation + Fine-tuning)
-│   ├── src/                # 모델, 데이터셋, 손실함수, 학습/추론/export 코드
-│   ├── configs/            # Hydra 실험 설정
-│   │   └── experiment/     # distill_l*, finetune_l*, export_*, infer_*
-│   ├── train_scripts/      # 학습 실행 셸 스크립트
-│   ├── infer_scripts/      # ONNX/Torch 추론 예제
-│   ├── eval_results/       # 검증 메트릭 CSV (추론 NPZ 결과는 gitignore)
-│   ├── notebooks/          # FLOPs 측정 노트북
-│   └── cpp/                # OpenVINO C++ 추론 코드
+├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
+├── EXPERIMENT_LOG.md                 # 실험 로그
+├── TRAINING_ANALYSIS.md              # 학습 결과 분석
+├── encoder-inference-demo-to-production.md  # 인코더 추론 데모→프로덕션 전환 노트
 │
-├── Ki-67_service/          # Ki-67 특화 파이프라인 + 웹 서비스
-│   ├── src/                # medficientsam과 동일 구조, Ki-67 실험용 복사본
-│   │   ├── train.py        # Hydra 학습 진입점
-│   │   ├── export_onnx.py  # ONNX + INT8 양자화 export
-│   │   ├── infer.py        # 검증셋 추론
-│   │   ├── models/         # distill_module, finetune_module, efficientvit 등
-│   │   └── data/           # MedSAMDataModule, MedSAMTrainDataset, MedSAMDistillDataset
-│   ├── configs/            # Ki-67 실험 Hydra 설정
-│   ├── deployment/         # 배포 패키지 (ONNX 모델 + 추론 클래스)
-│   │   ├── infer.py        # Ki67Segmenter 클래스 (onnxruntime만 필요)
-│   │   ├── example.py      # CLI 데모
-│   │   └── README.md       # 배포 패키지 사용법
-│   └── frontend/           # Next.js 웹 서비스
-│       └── app/realtime/   # 브라우저 ONNX(WASM) 실시간 세그멘테이션 UI
+├── medficientsam/                    # 학습 프레임워크 (Distillation + Fine-tuning)
+│   ├── src/                         # 모델, 데이터셋, 손실함수, 학습/추론/export 코드
+│   ├── configs/                     # Hydra 실험 설정
+│   │   └── experiment/              # distill_l*, finetune_l*, export_*, infer_*
+│   ├── train_scripts/               # 학습 실행 셸 스크립트
+│   ├── infer_scripts/               # ONNX/Torch 추론 예제
+│   ├── eval_results/                # 검증 메트릭 CSV (추론 NPZ 결과는 gitignore)
+│   ├── notebooks/                   # FLOPs 측정 노트북
+│   └── cpp/                         # OpenVINO C++ 추론 코드
 │
-└── train_npz/              # 학습 데이터 (gitignore, 아래 데이터셋 항목 참고)
+├── Ki-67_service/                   # Ki-67 특화 파이프라인 + 웹 서비스
+│   ├── src/                         # Ki-67 실험용 학습 코드
+│   │   ├── train.py                 # Hydra 학습 진입점
+│   │   ├── export_onnx.py           # ONNX + INT8 양자화 export
+│   │   ├── export_torch.py          # PyTorch checkpoint export
+│   │   ├── infer.py                 # 검증셋 추론
+│   │   ├── models/                  # distill_module, finetune_module, efficientvit 등
+│   │   ├── data/                    # MedSAMDataModule, MedSAMDistillDataset 등
+│   │   ├── losses/                  # SAMLoss
+│   │   ├── metrics/                 # generalized_dice
+│   │   └── utils/                   # 로깅, 전처리 유틸
+│   ├── configs/                     # Ki-67 실험 Hydra 설정
+│   ├── deployment/                  # 배포 패키지 (ONNX 모델 + 추론 클래스)
+│   │   ├── encoder.quantized.onnx   # ~44MB (GitHub Releases에서 다운로드)
+│   │   ├── decoder.quantized.onnx   # ~9MB  (GitHub Releases에서 다운로드)
+│   │   ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime만 필요)
+│   │   ├── example.py               # CLI 데모
+│   │   └── README.md                # 배포 패키지 사용법
+│   ├── frontend/                    # Next.js 웹 서비스
+│   │   ├── app/
+│   │   │   ├── api/onnx/            # encoder/decoder ONNX 파일 디스크 서빙
+│   │   │   ├── realtime/            # 브라우저 ONNX(WASM) 실시간 세그멘테이션 UI
+│   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
+│   │   └── public/samples/          # 샘플 이미지
+│   ├── docker-compose.yml           # Next.js + MLflow 컨테이너 구성
+│   └── nginx.conf                   # 리버스 프록시 설정
+│
+└── train_npz/                       # 학습 데이터 (gitignore, DATASET.md 참고)
 ```
 
 ---
@@ -150,7 +167,7 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 
 ### NPZ 전처리 코드 출처
 
-`train_npz/` 의 NPZ 파일은 이 레포 밖에서 생성되었습니다. 자세한 내용은 [`Ki-67_service/DATASET.md`](Ki-67_service/DATASET.md) 참고.
+`train_npz/` 의 NPZ 파일은 이 레포 밖에서 생성되었습니다. 자세한 내용은 [`DATASET.md`](DATASET.md) 참고.
 
 | 데이터 | 전처리 주체 | 방법 |
 |--------|------------|------|
