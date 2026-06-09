@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# onnxruntime-web wasm/mjs (auto-copied by postinstall)
+/public/ort-wasm*

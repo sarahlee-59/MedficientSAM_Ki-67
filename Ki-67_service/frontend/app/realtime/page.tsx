@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as ort from "onnxruntime-web";
+ort.env.logSeverityLevel = 3; // suppress verbose/info/warning — error only
 
 type Point = { x: number; y: number; label: 1 | 0 };
 

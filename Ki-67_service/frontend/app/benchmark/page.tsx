@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as ort from "onnxruntime-web";
 
+ort.env.wasm.wasmPaths = "/";
+
 const ENCODER_INT8_URL = "/models/encoder.quantized.onnx";
 const DECODER_INT8_URL = "/models/decoder.quantized.onnx";
-const ENCODER_FP32_URL = "/api/onnx/encoder";
-const DECODER_FP32_URL = "/api/onnx/decoder";
 const IMAGE_URL        = "/samples/sample1.png";
 const PROMPT_SCALE     = 1024 / 256;
 
@@ -266,7 +266,6 @@ async function runBrowserBenchmark(
       enc = await ort.InferenceSession.create(encoderUrl, {
         executionProviders: [ep],
         logSeverityLevel: 0,
-        logVerbosityLevel: 10,
       });
     } finally {
       console.log   = orig.log;
@@ -372,9 +371,8 @@ const CONFIGS: {
   label: string;
   isApiDelivered: boolean;
 }[] = [
-  { ep: "wasm",   encUrl: ENCODER_INT8_URL, decUrl: DECODER_INT8_URL, label: "WASM (int8)",  isApiDelivered: false },
-  { ep: "webgpu", encUrl: ENCODER_INT8_URL, decUrl: DECODER_INT8_URL, label: "GPU (int8)",   isApiDelivered: false },
-  { ep: "webgpu", encUrl: ENCODER_FP32_URL, decUrl: DECODER_FP32_URL, label: "GPU (fp32) †", isApiDelivered: true  },
+  { ep: "wasm",   encUrl: ENCODER_INT8_URL, decUrl: DECODER_INT8_URL, label: "WASM (int8)", isApiDelivered: false },
+  { ep: "webgpu", encUrl: ENCODER_INT8_URL, decUrl: DECODER_INT8_URL, label: "GPU (int8)",  isApiDelivered: false },
 ];
 
 // ─── Display Helpers ──────────────────────────────────────
@@ -393,7 +391,6 @@ function Ratio({ base, val }: { base: number | undefined; val: number | undefine
 type StatRow = {
   label: string;
   labelColor: string;
-  note: string;
   getMed: (r: RunResult) => number;
   getP95: (r: RunResult) => number;
   getStd: (r: RunResult) => number;
@@ -537,7 +534,6 @@ export default function BenchmarkPage() {
 
   const wasmR    = results.find(r => r.label === "WASM (int8)");
   const gpuInt8R = results.find(r => r.label === "GPU (int8)");
-  const gpuFp32R = results.find(r => r.isApiDelivered);
 
   const svgCells = CELLS.map(cell => ({
     ...cell,
@@ -549,28 +545,23 @@ export default function BenchmarkPage() {
   const statRows: StatRow[] = [
     {
       label: "추론 합계", labelColor: "text-white font-bold",
-      note: "이미지 1장 처리 총 시간",
       getMed: r => r.totalMed,
       getP95: r => r.totalP95,
       getStd: r => r.totalStd,
     },
     {
       label: "인코더", labelColor: "text-yellow-300 font-semibold",
-      note: "이미지 분석 (병목 구간)",
       getMed: r => r.encMed,
       getP95: r => r.encP95,
       getStd: r => r.encStd,
     },
     {
       label: "디코더 (세포 1개)", labelColor: "text-cyan-300 font-semibold",
-      note: "세포 추가할수록 누적됨",
       getMed: r => r.cells.length > 0 ? r.decSumMed / r.cells.length : 0,
       getP95: r => r.cells.length > 0 ? r.decSumP95 / r.cells.length : 0,
       getStd: r => r.cells.length > 0 ? r.decSumStd / r.cells.length : 0,
     },
   ];
-
-  const sep = "border-l border-dashed border-gray-700 pl-4";
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-8 font-mono text-sm">
@@ -680,13 +671,9 @@ export default function BenchmarkPage() {
           <div className="space-y-6">
 
             <div>
-              <h2 className="text-base font-semibold text-gray-200 mb-1">
+              <h2 className="text-base font-semibold text-gray-200 mb-3">
                 결과 (단위: ms)
               </h2>
-              <p className="text-[10px] text-gray-500 mb-3">
-                각 칸: 중앙값 · p95 · ±표준편차 / 워밍업 {WARMUP_RUNS}회 제외 · 본 측정{" "}
-                {BENCH_RUNS}회 / 추론 합계 p95·σ는 enc + dec 합산 (독립 가정, 보수적 추정)
-              </p>
 
               <table className="border-collapse text-sm">
                 <thead>
@@ -695,10 +682,6 @@ export default function BenchmarkPage() {
                     <th className="text-right pr-6">WASM (int8)</th>
                     <th className="text-right pr-2">GPU (int8)</th>
                     <th className="text-right pr-6 text-[10px]">vs WASM</th>
-                    <th className={`text-right pr-2 ${sep}`}>
-                      GPU (fp32) †
-                    </th>
-                    <th className="text-right pr-0 text-[10px]">vs WASM</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -706,42 +689,15 @@ export default function BenchmarkPage() {
                     <tr key={i} className="border-b border-gray-800">
                       <td className={`pr-10 ${row.labelColor} align-top py-3`}>
                         {row.label}
-                        <span className="ml-2 text-gray-500 font-normal text-xs">
-                          {row.note}
-                        </span>
                       </td>
                       <StatCell r={wasmR}    row={row} />
                       <StatCell r={gpuInt8R} row={row} />
                       <RatioCell base={wasmR} r={gpuInt8R} getMed={row.getMed} />
-                      <StatCell r={gpuFp32R} row={row} className={sep} />
-                      <RatioCell base={wasmR} r={gpuFp32R} getMed={row.getMed} />
                     </tr>
                   ))}
                 </tbody>
               </table>
 
-              {/* GPU fp32 footnote */}
-              <div className="mt-3 pt-2 border-t border-gray-800 space-y-1 text-[10px] text-gray-500">
-                <p>
-                  <span className="text-amber-400">†</span> GPU (fp32) 레이블이지만{" "}
-                  <code className="text-gray-400">/api/onnx/encoder</code>·
-                  <code className="text-gray-400">decoder</code>는 실제로{" "}
-                  <code className="text-gray-400">encoder/decoder.quantized.onnx</code>(int8)를 반환 —
-                  별도 fp32 모델 없음.
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-400">측정 경계:</span>{" "}
-                  session.run() 타이밍은 WASM/GPU int8과 동일. 네트워크 왕복은 측정에 포함되지 않고
-                  모델 로드 시간(InferenceSession.create)에만 HTTP 오버헤드가 더해짐.
-                </p>
-                <p>
-                  <span className="font-semibold text-gray-400">서버 추론 분리 방법 (참고):</span>{" "}
-                  API가 브라우저 대신 서버에서 추론을 실행한다면, 응답 헤더{" "}
-                  <code className="text-gray-400">X-Inference-Ms</code>로 서버 연산 시간을 분리하거나
-                  <code className="text-gray-400"> PerformanceResourceTiming</code>으로
-                  네트워크 구간을 측정할 수 있음.
-                </p>
-              </div>
             </div>
 
             {results.some(r => !r.error) && (
