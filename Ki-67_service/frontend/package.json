@@ -7,12 +7,10 @@
     "dev:https": "next dev --experimental-https --experimental-https-cert certs/cert.pem --experimental-https-key certs/key.pem --experimental-https-ca /home/infinitt/.local/share/mkcert/rootCA.pem",
     "build": "next build && cp -r .next/static .next/standalone/.next/static && cp -r public/. .next/standalone/public/",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "node -e \"const fs=require('fs'),path=require('path'),src=path.join('node_modules','onnxruntime-web','dist');fs.readdirSync(src).filter(f=>f.startsWith('ort-wasm-simd-threaded')).forEach(f=>fs.copyFileSync(path.join(src,f),path.join('public',f)))\""
+    "lint": "eslint"
   },
   "dependencies": {
     "next": "16.2.6",
-    "onnxruntime-web": "^1.26.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

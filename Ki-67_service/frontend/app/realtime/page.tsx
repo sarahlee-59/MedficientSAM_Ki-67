@@ -21,8 +21,6 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as ort from "onnxruntime-web";
-ort.env.logSeverityLevel = 3; // suppress verbose/info/warning — error only
 
 type Point = { x: number; y: number; label: 1 | 0 };
 
@@ -42,11 +40,8 @@ type SegmentResult = {
 
 type SegmentFn = (image: HTMLImageElement, points: Point[]) => Promise<SegmentResult>;
 
-const ONNX_ENCODER_URL = "/models/encoder.quantized.onnx";
-const ONNX_DECODER_URL = "/models/decoder.quantized.onnx";
-const MODEL_NAME = "e11_holdout_int8_onnx";
-const IMAGE_ENCODER_INPUT_SIZE = 512;
-const PROMPT_ENCODER_INPUT_SIZE = 1024;
+const MODEL_NAME = "e11_holdout_int8_server";
+const INFER_URL = "/api/infer";
 
 const CANVAS_SIZE = 768;
 const SHAPE_OPTIONS: { sides: 3 | 4 | 5 | 6; glyph: string; name: string }[] = [
@@ -68,24 +63,6 @@ const SHAPE_DIM_MAX = 240;
 const DRAG_THRESHOLD = 8; // 캔버스 좌표 px — 이거 초과해야 드래그로 인정
 const PREVIEW_DEBOUNCE_MS = 80;
 
-function imageToRgbArray(image: HTMLImageElement) {
-  const w = image.naturalWidth;
-  const h = image.naturalHeight;
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext("2d");
-  if (!ctx) throw new Error("Canvas context 생성 실패");
-  ctx.drawImage(image, 0, 0, w, h);
-  const rgba = ctx.getImageData(0, 0, w, h).data;
-  const rgb = new Uint8Array(w * h * 3);
-  for (let i = 0, j = 0; i < rgba.length; i += 4) {
-    rgb[j++] = rgba[i];
-    rgb[j++] = rgba[i + 1];
-    rgb[j++] = rgba[i + 2];
-  }
-  return { rgb, w, h };
-}
 
 function chaikin(pts: [number, number][], iterations = 2): [number, number][] {
   let p = pts;
@@ -381,162 +358,52 @@ export default function RealtimePage() {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const canvasAreaRef = useRef<HTMLDivElement>(null);
-  const encoderSessionRef = useRef<ort.InferenceSession | null>(null);
-  const decoderSessionRef = useRef<ort.InferenceSession | null>(null);
-  const embeddingCacheRef = useRef<{
-    imageKey: string;
-    embedding: ort.Tensor;
-    width: number;
-    height: number;
-  } | null>(null);
   const cellsRef = useRef<Cell[]>([]);
   const inferenceExcludeCellIdRef = useRef<number | null>(null);
 
   const [loadingMsg, setLoadingMsg] = useState<string | null>(null);
-  const modelsReadyRef = useRef(false);
-
-  async function computeEmbedding(image: HTMLImageElement) {
-    if (!encoderSessionRef.current) return;
-    const imageKey = `${image.currentSrc}|${image.naturalWidth}x${image.naturalHeight}`;
-    if (embeddingCacheRef.current?.imageKey === imageKey) {
-      setLoadingMsg(null);
-      return;
-    }
-    setLoadingMsg("이미지 분석 중…");
-    try {
-      const { rgb, w, h } = imageToRgbArray(image);
-      const imageTensor = new ort.Tensor("uint8", rgb, [h, w, 3]);
-      const originalSize = new ort.Tensor("int16", new Int16Array([h, w]), [2]);
-      const out = await encoderSessionRef.current.run({
-        image: imageTensor,
-        original_size: originalSize,
-      });
-      embeddingCacheRef.current = {
-        imageKey,
-        embedding: out.image_embeddings as ort.Tensor,
-        width: w,
-        height: h,
-      };
-    } catch (err) {
-      setError(err instanceof Error ? `이미지 분석 실패: ${err.message}` : "이미지 분석 실패");
-    } finally {
-      setLoadingMsg(null);
-    }
-  }
-
-  async function preloadModels() {
-    if (modelsReadyRef.current) {
-      // 모델은 이미 로드됨 — 이미지 임베딩만 계산 (img.onload에서 처리)
-      return;
-    }
-    setLoadingMsg("ONNX 모델 로드 중…");
-    try {
-      if (!encoderSessionRef.current) {
-        encoderSessionRef.current = await ort.InferenceSession.create(ONNX_ENCODER_URL, {
-          executionProviders: ["wasm"],
-        });
-      }
-      if (!decoderSessionRef.current) {
-        decoderSessionRef.current = await ort.InferenceSession.create(ONNX_DECODER_URL, {
-          executionProviders: ["wasm"],
-        });
-      }
-      modelsReadyRef.current = true;
-      // 모델 로드 완료 시점에 이미지가 이미 준비돼 있으면 바로 임베딩 계산
-      if (imgRef.current) {
-        await computeEmbedding(imgRef.current);
-      } else {
-        setLoadingMsg(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? `ONNX 모델 로드 실패: ${err.message}` : "ONNX 모델 로드 실패");
-      setLoadingMsg(null);
-    }
-  }
 
   const inferLockRef = useRef<Promise<void>>(Promise.resolve());
 
   const previewInferenceRef = useRef<SegmentFn>(async (image, points) => {
     const t0 = performance.now();
 
-    if (!encoderSessionRef.current) {
-      encoderSessionRef.current = await ort.InferenceSession.create(ONNX_ENCODER_URL, {
-        executionProviders: ["wasm"],
-      });
-    }
-    if (!decoderSessionRef.current) {
-      decoderSessionRef.current = await ort.InferenceSession.create(ONNX_DECODER_URL, {
-        executionProviders: ["wasm"],
-      });
-    }
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(image, 0, 0);
+    const blob = await new Promise<Blob>((resolve) =>
+      canvas.toBlob(resolve as BlobCallback, "image/png"),
+    );
 
-    const imageKey = `${image.currentSrc}|${image.naturalWidth}x${image.naturalHeight}`;
-    if (!embeddingCacheRef.current || embeddingCacheRef.current.imageKey !== imageKey) {
-      const { rgb, w, h } = imageToRgbArray(image);
-      const imageTensor = new ort.Tensor("uint8", rgb, [h, w, 3]);
-      const originalSize = new ort.Tensor("int16", new Int16Array([h, w]), [2]);
-      const out = await encoderSessionRef.current.run({
-        image: imageTensor,
-        original_size: originalSize,
-      });
-      const emb = out.image_embeddings as ort.Tensor;
-      embeddingCacheRef.current = { imageKey, embedding: emb, width: w, height: h };
-    }
+    const formData = new FormData();
+    formData.append("image", blob, "image.png");
+    formData.append("points", JSON.stringify(points.map((p) => [p.x, p.y])));
+    formData.append("labels", JSON.stringify(points.map((p) => p.label)));
 
-    const cached = embeddingCacheRef.current;
-    if (!cached) throw new Error("ONNX embedding cache 생성 실패");
-
-    const n = 1;
-    const k = points.length;
-    const ratio = PROMPT_ENCODER_INPUT_SIZE / Math.max(cached.height, cached.width);
-    const coords = new Float32Array(n * k * 2);
-    const labels = new Float32Array(n * k);
-    for (let i = 0; i < k; i++) {
-      coords[i * 2] = points[i].x * ratio;
-      coords[i * 2 + 1] = points[i].y * ratio;
-      labels[i] = points[i].label;
-    }
-
-    // 동시 추론 방지: decoder.run()은 한 번에 하나만 실행
     let releaseLock!: () => void;
-    const myTurn = new Promise<void>(resolve => { releaseLock = resolve; });
+    const myTurn = new Promise<void>((resolve) => { releaseLock = resolve; });
     const prevLock = inferLockRef.current;
     inferLockRef.current = myTurn;
     await prevLock;
-    let out: Awaited<ReturnType<typeof decoderSessionRef.current.run>>;
+
+    let json: { mask: number[]; width: number; height: number };
     try {
-      out = await decoderSessionRef.current!.run({
-        image_embeddings: cached.embedding,
-        point_coords: new ort.Tensor("float32", coords, [n, k, 2]),
-        point_labels: new ort.Tensor("float32", labels, [n, k]),
-      });
+      const res = await fetch(INFER_URL, { method: "POST", body: formData });
+      if (!res.ok) throw new Error(`서버 추론 실패: ${res.status}`);
+      json = await res.json();
     } finally {
       releaseLock();
     }
-    const masks = out.masks as ort.Tensor;
-    const logits = masks.data as Float32Array; // (1,1,512,512)
 
-    const H = cached.height;
-    const W = cached.width;
-    const newH = Math.round((H * IMAGE_ENCODER_INPUT_SIZE) / Math.max(H, W));
-    const newW = Math.round((W * IMAGE_ENCODER_INPUT_SIZE) / Math.max(H, W));
-    const binary = new Uint8Array(H * W);
-
-    // 512 logits -> valid영역(newH,newW) crop -> 원본(H,W) nearest resize
-    for (let y = 0; y < H; y++) {
-      const sy = Math.min(newH - 1, Math.floor((y / H) * newH));
-      for (let x = 0; x < W; x++) {
-        const sx = Math.min(newW - 1, Math.floor((x / W) * newW));
-        const v = logits[sy * IMAGE_ENCODER_INPUT_SIZE + sx];
-        binary[y * W + x] = v > 0 ? 1 : 0;
-      }
-    }
-
+    const { mask, width: W, height: H } = json;
+    const binary = new Uint8Array(mask);
     const occupied = buildOccupiedMask(
       cellsRef.current,
       inferenceExcludeCellIdRef.current,
       W,
-      H
+      H,
     );
     subtractOccupiedFromMask(binary, occupied);
 
@@ -786,9 +653,8 @@ export default function RealtimePage() {
     setIsPreviewPending(false);
     setZoom(1);
     setPan({ x: 0, y: 0 });
-    embeddingCacheRef.current = null;
 
-    imgRef.current = null; // 이전 이미지 참조 초기화 (preloadModels가 구 이미지로 임베딩 계산하는 것 방지)
+    imgRef.current = null;
 
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -796,12 +662,8 @@ export default function RealtimePage() {
       imgRef.current = img;
       setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
       URL.revokeObjectURL(url);
-      // 모델이 이미 로드돼 있으면 바로 임베딩 계산 (두 번째 이미지부터)
-      if (modelsReadyRef.current) void computeEmbedding(img);
     };
     img.src = url;
-
-    preloadModels();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
