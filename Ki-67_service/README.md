@@ -1,15 +1,15 @@
 # Ki-67 Segmentation Service
 
-Ki-67 세포 이미지를 클릭만으로 핵(nucleus)을 세그멘테이션하고 Ki-67 지수를 계산하는 서비스입니다. 모든 추론이 브라우저 안에서 실행되어 **이미지가 서버로 전송되지 않으며, GPU 서버도 필요 없습니다.**
+Ki-67 세포 이미지를 클릭만으로 핵(nucleus)을 세그멘테이션하고 Ki-67 지수를 계산하는 서비스입니다.
 
-- 배포 주소: https://ki-67.vercel.app
-- 추론 엔진: 브라우저 ONNX (onnxruntime-web, WASM)
+- 추론 엔진: 서버 사이드 ONNX Runtime Python / OpenVINO (FastAPI)
+- 프론트엔드: Next.js — 이미지 및 클릭 좌표를 서버로 전송 후 마스크 수신
 
 ---
 
 ## 목차
 
-1. [빠른 시작 — Docker](#빠른-시작--docker)
+1. [빠른 시작](#빠른-시작)
 2. [서비스 사용 방법](#서비스-사용-방법)
 3. [로컬 개발 환경](#로컬-개발-환경)
 4. [Python 추론 API](#python-추론-api)
@@ -19,34 +19,42 @@ Ki-67 세포 이미지를 클릭만으로 핵(nucleus)을 세그멘테이션하�
 
 ---
 
-## 빠른 시작 — Docker
+## 빠른 시작
+
+### 1. 추론 서버 실행
 
 ```bash
-git clone <repo-url> Ki-67_service
+cd Ki-67_service/deployment
+pip install fastapi "uvicorn[standard]" python-multipart onnxruntime numpy opencv-python
+uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+OpenVINO 백엔드를 사용하는 경우:
+
+```bash
+cd Ki-67_service/deployment_openvino
+pip install -r requirements.txt
+uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+### 2. 프론트엔드 실행
+
+```bash
+cd Ki-67_service/frontend
+npm install
+npm run dev
+```
+
+브라우저에서 http://localhost:3000/realtime 으로 접속합니다.
+
+### Docker (프론트엔드만)
+
+```bash
 cd Ki-67_service
 docker compose up -d
 ```
 
-빌드는 처음 실행 시 약 3~5분 소요됩니다. 완료 후 브라우저에서 접속합니다.
-
-- 서버에서 직접: http://localhost:3000/realtime
-- 외부 장치에서: http://서버-IP:3000/realtime
-
-> **외부 IP + HTTP에서 모델 로드가 실패하는 경우**: `SharedArrayBuffer` 제한 때문입니다. [트러블슈팅](#onnx-모델-로드-실패-브라우저-콘솔-에러)을 참고하세요.
-
-### 컨테이너 관리
-
-```bash
-# 상태 확인
-docker compose ps
-docker compose logs frontend --tail=30
-
-# 중지
-docker compose down
-
-# 코드 변경 후 재빌드
-docker compose build frontend && docker compose up -d
-```
+> 추론 서버는 Docker Compose에 포함되어 있지 않습니다. 별도로 실행해야 합니다.
 
 ---
 
@@ -72,7 +80,6 @@ docker compose build frontend && docker compose up -d
 
 **1단계: 이미지 업로드**
 캔버스의 업로드 박스를 클릭하거나 드래그 앤 드롭합니다. 지원 형식: JPG, PNG, BMP, TIFF.
-업로드 후 ONNX 모델이 자동 로드됩니다 (첫 로드 시 ~53 MB 다운로드, 이후 브라우저 캐시).
 
 **2단계: 라벨 선택** — `P` 양성(+) / `N` 음성(−)
 
@@ -134,35 +141,29 @@ docker compose build frontend && docker compose up -d
 
 Node.js 20 이상이 필요합니다.
 
+### 추론 서버 (필수)
+
+```bash
+cd deployment
+uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+서버가 실행 중이지 않으면 프론트엔드에서 추론이 동작하지 않습니다.
+
+### 프론트엔드
+
 ```bash
 cd frontend
 npm install
+npm run dev
 ```
 
-### HTTPS 개발 서버
-
-외부 IP HTTP에서는 WASM이 동작하지 않으므로 HTTPS가 필요합니다.
-
-```bash
-# mkcert 설치 (최초 1회)
-sudo apt install mkcert    # Ubuntu/Debian
-# brew install mkcert      # macOS
-
-# 인증서 생성 (최초 1회)
-mkdir -p certs
-mkcert -cert-file certs/cert.pem -key-file certs/key.pem <서버-IP>
-
-# 서버 시작
-npm run dev:https
-```
-
-https://서버-IP:3000/realtime 으로 접속합니다.
-
-> 로컬에서 `localhost`로만 접속하는 경우엔 `npm run dev` 로 HTTP 서버를 바로 쓸 수 있습니다.
+`frontend/.env.local`의 `BACKEND_URL`이 추론 서버 주소와 일치하는지 확인합니다 (기본값: `http://localhost:8000`).
 
 ### 프로덕션 빌드 테스트
 
 ```bash
+cd frontend
 npm run build && npm run start
 ```
 
@@ -170,18 +171,13 @@ npm run build && npm run start
 
 ## Python 추론 API
 
-서버 없이 Python에서 직접 ONNX 모델을 사용하는 방법입니다.
-
-### 설치
+### ONNX Runtime (deployment/)
 
 ```bash
-pip install onnxruntime numpy opencv-python Pillow
+pip install onnxruntime numpy opencv-python
 ```
 
-### 기본 사용법
-
 ```python
-import numpy as np
 from deployment.infer import Ki67Segmenter
 
 seg = Ki67Segmenter(
@@ -194,6 +190,24 @@ seg = Ki67Segmenter(
 masks = seg.predict(image, points)  # (N, H, W) uint8 바이너리 마스크
 ```
 
+### OpenVINO (deployment_openvino/)
+
+```bash
+pip install -r deployment_openvino/requirements.txt
+```
+
+```python
+from deployment_openvino.infer import Ki67Segmenter
+
+seg = Ki67Segmenter(
+    encoder_path="deployment_openvino/encoder.xml",
+    decoder_path="deployment_openvino/decoder.xml",
+)
+masks = seg.predict(image, points)
+```
+
+두 패키지의 `Ki67Segmenter` API는 동일합니다. 파일 경로만 바꾸면 백엔드를 전환할 수 있습니다.
+
 ### 인코딩 캐시 (같은 이미지에서 반복 추론)
 
 ```python
@@ -202,30 +216,14 @@ masks_a = seg.decode(emb, points_a, image.shape[:2])
 masks_b = seg.decode(emb, points_b, image.shape[:2])
 ```
 
-### CLI 예제
+### 성능 비교 (Intel CPU, 807×802 타일, median 30회)
 
-```bash
-# 단일 세포, 클릭 1개
-python deployment/example.py my_tile.png --points "120,80"
+| 백엔드 | 인코더 | 디코더 (N=1, K=1) | e2e |
+|---|---|---|---|
+| INT8 ONNX (onnxruntime) | 274 ms | 10 ms | 284 ms |
+| **FP32 OpenVINO** | **139 ms** | **9 ms** | **148 ms** |
 
-# 단일 세포, 클릭 3개
-python deployment/example.py my_tile.png --points "100,80;130,95;115,110"
-
-# 전경 + 배경 혼합
-python deployment/example.py my_tile.png --points "120,80;130,95" --neg-points "50,50"
-```
-
-결과는 `<이미지이름>.overlay.png`로 저장됩니다.
-
-### 성능 지표 (Ki-67 holdout 818 타일, n=100, seed=42)
-
-| 클릭 수 | Dice 점수 |
-|---|---|
-| k=1 | ~0.30 |
-| k=3 | ~0.73 |
-| k=5 | ~0.76 |
-
-> 클릭 위치는 핵(nucleus) **내부**에 있어야 합니다. 학습 타일 크기 128~256 px — 큰 이미지는 내부에서 512px longest-side로 리사이즈됩니다.
+서버 추론에서는 인코딩 결과를 이미지 해시 기준으로 캐시합니다. 같은 이미지에서 여러 번 클릭할 때는 인코더를 한 번만 실행합니다.
 
 ---
 
@@ -233,18 +231,20 @@ python deployment/example.py my_tile.png --points "120,80;130,95" --neg-points "
 
 ```
 사용자 브라우저
-    ↓  이미지 업로드 (로컬, 서버 전송 없음)
-/realtime 페이지 (Next.js)
-    ↓  GET /models/encoder.quantized.onnx
-    ↓  GET /models/decoder.quantized.onnx
-nginx (포트 3000, 리버스 프록시)
+    │  이미지 + 클릭 좌표 전송
     ↓
-Next.js 서버 (Docker, 포트 3000)
-    ↓  public/models/*.onnx (빌드 시 포함)
-브라우저 WASM 런타임 (onnxruntime-web)
+/realtime 페이지 (Next.js, 포트 3000)
+    │  POST /api/infer  (Next.js 프록시)
+    ↓
+FastAPI 추론 서버 (포트 8000)
+    │  Ki67Segmenter.encode() — 이미지 해시 캐시
+    │  Ki67Segmenter.decode() — 마스크 생성
+    ↓
+ONNX Runtime / OpenVINO
+    │  (N, H, W) uint8 바이너리 마스크
+    ↓
+브라우저 — 마스크 → 윤곽선 변환 후 캔버스에 렌더링
 ```
-
-모든 추론은 브라우저 내 WASM으로 실행됩니다. 서버는 ONNX 모델 파일을 정적으로 서빙하는 역할만 합니다.
 
 ---
 
@@ -254,23 +254,32 @@ Next.js 서버 (Docker, 포트 3000)
 Ki-67_service/
 ├── frontend/                        # Next.js 앱 (Node.js 20)
 │   ├── app/
+│   │   ├── api/
+│   │   │   └── infer/route.ts       # FastAPI 프록시 엔드포인트
 │   │   └── realtime/                # 메인 어노테이션 페이지 (/realtime)
-│   │       ├── page.tsx             # UI + 추론 로직
+│   │       ├── page.tsx             # UI + 서버 추론 호출
 │   │       ├── types.ts
 │   │       └── utils/segmentation.ts
 │   ├── public/
-│   │   ├── models/                  # ONNX 모델 파일 (빌드에 포함, INT8 quantized 사용)¹
 │   │   └── samples/                 # 샘플 이미지
 │   ├── Dockerfile
+│   ├── .env.local                   # BACKEND_URL 설정
 │   └── package.json
-├── deployment/                      # Python 추론 패키지
+├── deployment/                      # ONNX Runtime 추론 패키지
 │   ├── infer.py                     # Ki67Segmenter 클래스
-│   └── example.py
+│   ├── server.py                    # FastAPI 추론 서버
+│   ├── example.py                   # CLI 데모
+│   ├── encoder.quantized.onnx       # INT8 인코더 (~44 MB)
+│   └── decoder.quantized.onnx       # INT8 디코더 (~9 MB)
+├── deployment_openvino/             # OpenVINO 추론 패키지
+│   ├── infer.py                     # Ki67Segmenter 클래스 (OV 백엔드)
+│   ├── example.py                   # CLI 데모
+│   ├── encoder.xml / encoder.bin    # FP32 인코더 IR (~167 MB)
+│   ├── decoder.xml / decoder.bin    # FP32 디코더 IR (~19 MB)
+│   └── requirements.txt
 ├── docker-compose.yml
 └── nginx.conf
 ```
-
-¹ `models/` 에는 INT8(quantized), FP16, FP32 세 가지 정밀도의 모델이 포함됩니다. 서비스는 기본으로 INT8을 사용합니다.
 
 > `src/`, `configs/` 는 모델 학습용 코드이며 서비스 실행과 무관합니다.
 
@@ -278,25 +287,21 @@ Ki-67_service/
 
 ## 트러블슈팅
 
-### ONNX 모델 로드 실패 (브라우저 콘솔 에러)
+### 추론 서버에 연결할 수 없음
 
-**원인**: HTTP 환경에서 `SharedArrayBuffer`가 차단됨.
+프론트엔드에서 추론 요청이 실패하는 경우 추론 서버가 실행 중인지 확인합니다.
 
-**해결**: HTTPS 환경을 구성합니다.
-- 로컬 개발: `npm run dev:https` ([로컬 개발 환경](#로컬-개발-환경) 참고)
-- Docker: nginx SSL 설정
+```bash
+curl http://localhost:8000/docs
+```
 
-`localhost`에서 접속하면 HTTP에서도 WASM이 정상 동작합니다.
-
-### 첫 로드가 느림
-
-모델 파일 합계 약 53 MB를 처음 다운로드합니다. 이후 브라우저 캐시에 저장됩니다.
+`frontend/.env.local`의 `BACKEND_URL`이 실제 서버 주소와 일치하는지 확인합니다.
 
 ### 세포 세그멘테이션이 비어있거나 노이즈가 많음
 
 - 도형 크기를 세포 핵에 맞게 조정합니다 (마우스 휠).
 - 클릭 위치가 핵 **내부**에 오도록 조준합니다.
-- 추론 중 회색 테두리가 표시되면 완료될 때까지 기다립니다 (WASM CPU 추론 100~500ms).
+- 학습 타일 크기: 128~256 px. 더 큰 이미지는 내부에서 512px longest-side로 리사이즈됩니다.
 
 ### 컨테이너 코드가 반영되지 않음
 
@@ -304,9 +309,9 @@ Ki-67_service/
 docker compose build frontend && docker compose up -d
 ```
 
-### 포트 3000이 이미 사용 중
+### 포트 3000 또는 8000이 이미 사용 중
 
 ```bash
 sudo lsof -i :3000
-# docker-compose.yml의 nginx 포트를 변경 (예: 3001)
+sudo lsof -i :8000
 ```

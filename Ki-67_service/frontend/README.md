@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ki-67 Frontend
 
-## Getting Started
+Ki-67 세그멘테이션 서비스의 Next.js 프론트엔드입니다.
 
-First, run the development server:
+## 실행 방법
+
+### 1. 추론 서버 먼저 실행 (필수)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd ../deployment
+uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. 프론트엔드 실행
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+http://localhost:3000/realtime 으로 접속합니다.
 
-## Learn More
+## 환경 변수
 
-To learn more about Next.js, take a look at the following resources:
+`.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| 변수 | 기본값 | 설명 |
+|---|---|---|
+| `BACKEND_URL` | `http://localhost:8000` | FastAPI 추론 서버 주소 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 추론 흐름
 
-## Deploy on Vercel
+```
+브라우저 클릭
+    → POST /api/infer (Next.js 프록시, app/api/infer/route.ts)
+    → POST http://BACKEND_URL/infer (FastAPI)
+    → (N, H, W) uint8 마스크 반환
+    → 브라우저에서 윤곽선 변환 후 캔버스 렌더링
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 주요 파일
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 경로 | 역할 |
+|---|---|
+| `app/realtime/page.tsx` | 메인 어노테이션 UI + 추론 호출 |
+| `app/api/infer/route.ts` | FastAPI 프록시 라우트 |
+| `app/realtime/utils/segmentation.ts` | 마스크 → 윤곽선 변환 유틸 |
+| `app/realtime/types.ts` | 공용 타입 정의 |
+
+## 빌드
+
+```bash
+npm run build
+npm run start
+```
