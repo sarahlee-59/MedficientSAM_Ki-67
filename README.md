@@ -35,17 +35,19 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 │   │   ├── metrics/                 # generalized_dice
 │   │   └── utils/                   # 로깅, 전처리 유틸
 │   ├── configs/                     # Ki-67 실험 Hydra 설정
-│   ├── deployment/                  # ONNX Runtime 추론 패키지
-│   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB (GitHub Releases에서 다운로드)
-│   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB  (GitHub Releases에서 다운로드)
-│   │   ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime)
-│   │   ├── server.py                # FastAPI 추론 서버
-│   │   └── example.py               # CLI 데모
-│   ├── deployment_openvino/         # OpenVINO FP32 추론 패키지 (현재 운영 중)
-│   │   ├── encoder.xml / .bin       # FP32 인코더 IR ~167MB
-│   │   ├── decoder.xml / .bin       # FP32 디코더 IR ~19MB
-│   │   ├── infer.py                 # Ki67Segmenter 클래스 (openvino)
-│   │   └── server.py                # FastAPI 추론 서버
+│   ├── deployment/                  # 추론 배포 패키지
+│   │   ├── openvino/                # OpenVINO FP32 — 현재 운영 중 (e2e ~125ms)
+│   │   │   ├── encoder.xml / .bin   # FP32 인코더 IR ~167MB
+│   │   │   ├── decoder.xml / .bin   # FP32 디코더 IR ~19MB
+│   │   │   ├── infer.py             # Ki67Segmenter 클래스 (openvino)
+│   │   │   ├── server.py            # FastAPI 추론 서버
+│   │   │   └── README.md
+│   │   └── onnx/                    # ONNX INT8 — 참고용 (e2e ~637ms)
+│   │       ├── encoder.quantized.onnx  # INT8 인코더 ~44MB
+│   │       ├── decoder.quantized.onnx  # INT8 디코더 ~9MB
+│   │       ├── infer.py             # Ki67Segmenter 클래스 (onnxruntime)
+│   │       ├── server.py            # FastAPI 추론 서버
+│   │       └── README.md
 │   ├── frontend/                    # Next.js 웹 서비스
 │   │   ├── app/
 │   │   │   ├── api/infer/           # FastAPI 추론 서버 프록시 엔드포인트
@@ -192,7 +194,7 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 ## 배포 패키지
 
 > **ONNX 모델 파일은 GitHub Releases에서 다운로드하세요.**  
-> `encoder.quantized.onnx` (~44MB) + `decoder.quantized.onnx` (~9MB)를 `Ki-67_service/deployment/`에 배치.
+> `encoder.quantized.onnx` (~44MB) + `decoder.quantized.onnx` (~9MB)를 `Ki-67_service/deployment/onnx/`에 배치.
 
 ### 의존성 (PyTorch 불필요)
 
@@ -203,12 +205,12 @@ pip install onnxruntime numpy opencv-python
 ### 사용 예시
 
 ```python
-from Ki-67_service.deployment.infer import Ki67Segmenter
+from Ki-67_service.deployment.onnx.infer import Ki67Segmenter
 import numpy as np
 
 seg = Ki67Segmenter(
-    encoder_path="deployment/encoder.quantized.onnx",
-    decoder_path="deployment/decoder.quantized.onnx",
+    encoder_path="deployment/onnx/encoder.quantized.onnx",
+    decoder_path="deployment/onnx/decoder.quantized.onnx",
 )
 
 # image: (H, W, 3) uint8 RGB
@@ -226,7 +228,7 @@ masks_a = seg.decode(emb, points_a, image.shape[:2])
 masks_b = seg.decode(emb, points_b, image.shape[:2])
 ```
 
-자세한 CLI 사용법은 [`Ki-67_service/deployment/README.md`](Ki-67_service/deployment/README.md) 참고.
+자세한 CLI 사용법은 [`Ki-67_service/deployment/onnx/README.md`](Ki-67_service/deployment/onnx/README.md) 참고.
 
 ---
 

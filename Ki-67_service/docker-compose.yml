@@ -7,7 +7,7 @@ services:
       - "3000"
     restart: unless-stopped
     volumes:
-      - /mnt/Disk1/sylee/deployment:/models:ro
+      - ./deployment/onnx:/models:ro
     environment:
       - ONNX_DIR=/models
 
