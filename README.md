@@ -52,6 +52,10 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 │   │   │   ├── realtime/            # 실시간 세그멘테이션 UI (서버 추론)
 │   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
 │   │   └── public/samples/          # 샘플 이미지
+│   ├── benchmark_speed.py           # ONNX-INT8 vs OpenVINO-FP32 속도 벤치마크
+│   ├── benchmark_images/            # 벤치마크용 샘플 이미지
+│   ├── benchmark_results.md         # 벤치마크 결과 요약
+│   ├── 5_benches/                   # 벤치마크 실측 JSON
 │   ├── docker-compose.yml           # Next.js 컨테이너 구성
 │   └── nginx.conf                   # 리버스 프록시 설정
 │
