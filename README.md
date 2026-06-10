@@ -1,7 +1,7 @@
 # Ki-67 Nucleus Segmentation — Training Pipeline & Web Service
 
 Ki-67 IHC 병리 이미지에서 핵(nucleus)을 클릭 한 번으로 세그멘테이션하는 서비스.  
-SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-tuning, ONNX INT8 변환까지의 전체 파이프라인과 브라우저 기반 웹 서비스를 포함합니다.
+SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-tuning, ONNX INT8 변환까지의 전체 파이프라인과 서버 추론 기반 웹 서비스를 포함합니다.
 
 ---
 
@@ -12,7 +12,6 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # 실험 로그
 ├── TRAINING_ANALYSIS.md              # 학습 결과 분석
-├── encoder-inference-demo-to-production.md  # 인코더 추론 데모→프로덕션 전환 노트
 │
 ├── medficientsam/                    # 학습 프레임워크 (Distillation + Fine-tuning)
 │   ├── src/                         # 모델, 데이터셋, 손실함수, 학습/추론/export 코드
@@ -36,19 +35,24 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 │   │   ├── metrics/                 # generalized_dice
 │   │   └── utils/                   # 로깅, 전처리 유틸
 │   ├── configs/                     # Ki-67 실험 Hydra 설정
-│   ├── deployment/                  # 배포 패키지 (ONNX 모델 + 추론 클래스)
-│   │   ├── encoder.quantized.onnx   # ~44MB (GitHub Releases에서 다운로드)
-│   │   ├── decoder.quantized.onnx   # ~9MB  (GitHub Releases에서 다운로드)
-│   │   ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime만 필요)
-│   │   ├── example.py               # CLI 데모
-│   │   └── README.md                # 배포 패키지 사용법
+│   ├── deployment/                  # ONNX Runtime 추론 패키지
+│   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB (GitHub Releases에서 다운로드)
+│   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB  (GitHub Releases에서 다운로드)
+│   │   ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime)
+│   │   ├── server.py                # FastAPI 추론 서버
+│   │   └── example.py               # CLI 데모
+│   ├── deployment_openvino/         # OpenVINO FP32 추론 패키지 (현재 운영 중)
+│   │   ├── encoder.xml / .bin       # FP32 인코더 IR ~167MB
+│   │   ├── decoder.xml / .bin       # FP32 디코더 IR ~19MB
+│   │   ├── infer.py                 # Ki67Segmenter 클래스 (openvino)
+│   │   └── server.py                # FastAPI 추론 서버
 │   ├── frontend/                    # Next.js 웹 서비스
 │   │   ├── app/
-│   │   │   ├── api/onnx/            # encoder/decoder ONNX 파일 디스크 서빙
-│   │   │   ├── realtime/            # 브라우저 ONNX(WASM) 실시간 세그멘테이션 UI
+│   │   │   ├── api/infer/           # FastAPI 추론 서버 프록시 엔드포인트
+│   │   │   ├── realtime/            # 실시간 세그멘테이션 UI (서버 추론)
 │   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
 │   │   └── public/samples/          # 샘플 이미지
-│   ├── docker-compose.yml           # Next.js + MLflow 컨테이너 구성
+│   ├── docker-compose.yml           # Next.js 컨테이너 구성
 │   └── nginx.conf                   # 리버스 프록시 설정
 │
 └── train_npz/                       # 학습 데이터 (gitignore, DATASET.md 참고)
@@ -223,41 +227,43 @@ masks_b = seg.decode(emb, points_b, image.shape[:2])
 
 ## 웹 서비스
 
+**접속 주소:** http://10.10.40.194:3000/realtime
+
 ### 아키텍처
 
-브라우저에서 직접 ONNX 모델을 실행하는 순수 클라이언트 사이드 추론.  
-서버 GPU 없이 동작하며, 모델은 Next.js API route를 통해 디스크에서 서빙됩니다.
+Next.js 프록시를 통해 FastAPI 추론 서버(OpenVINO FP32)에 요청을 전달하는 서버 추론 구조.  
+브라우저는 이미지와 클릭 좌표를 전송하고, 서버에서 마스크를 반환합니다.
 
 ```
 사용자 브라우저
-    ↓ /api/onnx/encoder 로 ONNX 파일 다운로드 (최초 1회)
-onnxruntime-web (WASM/CPU)
-    ↓ 이미지 임베딩 캐시 → 클릭마다 decoder 실행
-    ↓ Moore-neighbor 윤곽선 추적 + Chaikin smoothing
-화면에 세포 마스크 표시
+    ↓ 이미지 + 클릭 좌표 (FormData)
+Next.js /realtime 페이지 (포트 3000, systemd)
+    ↓ POST /api/infer  ← Next.js 프록시
+FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
+    ↓ 이미지 해시 캐시 → encode → decode → (H, W) uint8 마스크
+브라우저 — 마스크 → 윤곽선 추출 → 캔버스 렌더링
 ```
+
+### 추론 성능 (Intel CPU, 256×256, median 5회)
+
+| 백엔드 | encode | decode (4셀) | e2e |
+|--------|-------:|-------------:|----:|
+| ONNX INT8 | 545 ms | 92 ms | 637 ms |
+| **OpenVINO FP32** | **75 ms** | **50 ms** | **125 ms** |
 
 ### 주요 기능 (`/realtime` 페이지)
 
 - 이미지 업로드 (JPG/PNG/BMP/TIFF) 또는 드래그&드롭
 - 다각형 프롬프트 도형 (△□⬠⬡) 크기·회전·위치 조절 후 클릭으로 세포 세그멘테이션
 - 양성(Ki-67+) / 음성(Ki-67−) 라벨 지정 및 Ki-67 지수 자동 계산
+- Undo(`Z`) / Redo(`Y`) 단축키 및 버튼
 - 세포 목록 편집 (재추론, 라벨 변경, 삭제, 드래그 순서 변경)
 - 결과 JSON 저장 (세포별 폴리라인 좌표 + 추론 시간 포함)
 
-### 실행
+### 환경변수 (`frontend/.env.local`)
 
-```bash
-cd Ki-67_service/frontend
-cp .env.example .env.local   # ONNX 모델 경로(ONNX_DIR) 설정
-npm install
-npm run dev
-# → http://localhost:3000/realtime
 ```
-
-환경변수 (`frontend/.env.local`):
-```
-ONNX_DIR=/path/to/deployment   # encoder/decoder.quantized.onnx가 있는 디렉토리
+BACKEND_URL=http://localhost:8000   # FastAPI 추론 서버 주소
 ```
 
 ---
