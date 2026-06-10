@@ -1,4 +1,4 @@
-# MedEfficientSAM Distillation — 실험 로그
+# MedficientSAM Distillation — 실험 로그
 
 EfficientViT-SAM L1을 teacher MedSAM(SAM ViT-B)으로 knowledge distillation한 전체 실험 기록.  
 성능 지표는 CVPR2024 MedSAM validation set 기준 DSC / NSD.

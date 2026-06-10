@@ -1,4 +1,4 @@
-# MedEfficientSAM Distillation 학습 분석
+# MedficientSAM Distillation 학습 분석
 
 > Run: `distill_l1_npz_clean_20260514`  
 > Run ID: `7e6d65f73c7d45728c33de6e07f675fc`  
