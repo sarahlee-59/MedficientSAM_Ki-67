@@ -13,6 +13,7 @@
  *  - ctrl + 좌드래그    → 화면 이동(팬)
  *  - R                 → 회전 0° 리셋
  *  - Z                 → 마지막 cell undo
+ *  - Y                 → undo한 cell redo
  *  - Esc               → 삭제 모드 토글 / ctrl + Esc → 전체 삭제
  *
  * ── 추론 ───────────────────────────────────────────────────────────────────
@@ -388,9 +389,10 @@ export default function RealtimePage() {
   const cellsRef = useRef<Cell[]>([]);
   const inferenceExcludeCellIdRef = useRef<number | null>(null);
 
-  const [loadingMsg, setLoadingMsg] = useState<string | null>(null);
+  const [redoCount, setRedoCount] = useState(0);
 
   const inferLockRef = useRef<Promise<void>>(Promise.resolve());
+  const redoStackRef = useRef<Cell[]>([]);
 
   const previewInferenceRef = useRef<SegmentFn>(async (image, points) => {
     const t0 = performance.now();
@@ -484,6 +486,7 @@ export default function RealtimePage() {
   const isToolbarDraggingRef = useRef(false);
   const toolbarDragStartXRef = useRef(0);
   const toolbarDragStartWidthRef = useRef(0);
+  const windowWidthRef = useRef(typeof window !== "undefined" ? window.innerWidth : 1280);
   const [cellFilter, setCellFilter] = useState<"all" | "positive" | "negative">("all");
   const hoveredFromCanvasRef = useRef(false);
   const cellRowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -845,7 +848,7 @@ export default function RealtimePage() {
       return;
     }
     const p = canvasPointFromEvent(e);
-    if (!p || loadingMsg !== null || pendingCount > 0) return;
+    if (!p || pendingCount > 0) return;
     if (e.button === 2) {
       // 우클릭 → 크기 조정 시작 (시점 폭 저장)
       e.preventDefault();
@@ -1002,6 +1005,8 @@ export default function RealtimePage() {
     setPreviewPolyline(null);
     setError(null);
 
+    redoStackRef.current = [];
+    setRedoCount(0);
     setCells((prev) => [
       ...prev,
       { id, points: verts, polyline: [], kiLabel: label, inferenceMs: 0, pending: true },
@@ -1026,7 +1031,21 @@ export default function RealtimePage() {
 
   // ── 액션 ──────────────────────────────────────────────────────────────────
   function handleUndo() {
-    setCells((prev) => prev.slice(0, -1));
+    const prev = cellsRef.current;
+    if (prev.length === 0) return;
+    const last = prev[prev.length - 1];
+    redoStackRef.current = [...redoStackRef.current, last];
+    setRedoCount((n) => n + 1);
+    setCells(prev.slice(0, -1));
+  }
+
+  function handleRedo() {
+    const stack = redoStackRef.current;
+    if (stack.length === 0) return;
+    const cell = stack[stack.length - 1];
+    redoStackRef.current = stack.slice(0, -1);
+    setRedoCount((n) => Math.max(0, n - 1));
+    setCells((prev) => [...prev, cell]);
   }
 
   function handleResetAll() {
@@ -1194,9 +1213,9 @@ export default function RealtimePage() {
   }
 
   // ── 키보드 ────────────────────────────────────────────────────────────────
-  const handlersRef = useRef({ handleUndo, handleResetAll, resetRotation, switchTool });
+  const handlersRef = useRef({ handleUndo, handleRedo, handleResetAll, resetRotation, switchTool });
   useEffect(() => {
-    handlersRef.current = { handleUndo, handleResetAll, resetRotation, switchTool };
+    handlersRef.current = { handleUndo, handleRedo, handleResetAll, resetRotation, switchTool };
   });
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1204,6 +1223,8 @@ export default function RealtimePage() {
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if ((e.key === "z" || e.key === "Z") && !e.ctrlKey && !e.metaKey)
         handlersRef.current.handleUndo();
+      else if (e.key === "y" || e.key === "Y")
+        handlersRef.current.handleRedo();
       else if (e.key === "Escape" && e.ctrlKey)
         handlersRef.current.handleResetAll();
       else if (e.key === "Escape") {
@@ -1234,10 +1255,21 @@ export default function RealtimePage() {
   }, []);
 
   useEffect(() => {
+    function onResize() {
+      windowWidthRef.current = window.innerWidth;
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!isToolbarDraggingRef.current) return;
       const dx = toolbarDragStartXRef.current - e.clientX;
-      setToolbarWidth(clamp(toolbarDragStartWidthRef.current + dx, 240, 600));
+      // 최솟값: 왼쪽 여백 == 툴바 폭이 되는 시점 → T = (W - CANVAS_SIZE) / 3
+      const minBySymmetry = Math.floor((windowWidthRef.current - CANVAS_SIZE) / 3);
+      const minToolbar = Math.max(270, minBySymmetry);
+      setToolbarWidth(clamp(toolbarDragStartWidthRef.current + dx, minToolbar, 600));
     }
     function onMouseUp() {
       isToolbarDraggingRef.current = false;
@@ -1522,17 +1554,6 @@ export default function RealtimePage() {
                 </svg>
               )}
             </div>
-
-            {/* 로딩 오버레이 (모델 로드 → 이미지 임베딩 순서로 표시) */}
-            {loadingMsg && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm rounded-lg z-20 gap-3">
-                <svg className="w-10 h-10 text-blue-400 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" />
-                  <path className="opacity-80" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" />
-                </svg>
-                <p className="text-sm font-semibold text-gray-100">{loadingMsg}</p>
-              </div>
-            )}
 
             {/* 좌상단 inferring 배지 */}
             {pendingCount > 0 && (
@@ -2024,7 +2045,7 @@ export default function RealtimePage() {
                       step={1}
                       value={shapeRotationDeg}
                       onChange={(e) => setShapeRotationDeg(Number(e.target.value))}
-                      className="flex-1 accent-emerald-500"
+                      className="flex-1 min-w-0 accent-emerald-500"
                     />
                     <button
                       onClick={resetRotation}
@@ -2117,6 +2138,7 @@ export default function RealtimePage() {
                   [["N"], "음성 라벨 선택"],
                   [["R"], "회전 0° 리셋"],
                   [["Z"], "마지막 Undo"],
+                  [["Y"], "Undo 되돌리기 (Redo)"],
                   [["Esc"], "삭제 모드 토글"],
                   [["ctrl", "Esc"], "전체 세포 삭제"],
                 ] as [string[], string][]).map(([keys, desc]) => (
@@ -2140,7 +2162,23 @@ export default function RealtimePage() {
           {/* 액션 */}
           <div>
             <ToolLabel>액션</ToolLabel>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+              <button
+                onClick={handleUndo}
+                disabled={cells.length === 0}
+                className="py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Undo <span className="text-gray-500">(Z)</span>
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={redoCount === 0}
+                className="py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Redo <span className="text-gray-500">(Y)</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
               <button
                 onClick={() => {
                   setZoom(1);
@@ -2149,13 +2187,6 @@ export default function RealtimePage() {
                 className="py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 transition"
               >
                 줌 초기화
-              </button>
-              <button
-                onClick={handleUndo}
-                disabled={cells.length === 0}
-                className="py-1.5 rounded text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                Undo <span className="text-gray-500">(Z)</span>
               </button>
               <button
                 onClick={handleResetAll}
