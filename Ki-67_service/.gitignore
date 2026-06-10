@@ -39,6 +39,9 @@ outputs/
 results/
 *.log
 
+# 임시 오버레이 파일 (canvas export 중간 산출물)
+*.overlay.png
+
 # 빌드 산출물 / 테스트 파일
 backend/result_vis.png
 frontend/tsconfig.tsbuildinfo
