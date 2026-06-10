@@ -10,15 +10,11 @@ EfficientViT-SAM L1을 teacher MedSAM(SAM ViT-B)으로 knowledge distillation한
 | 날짜 | Run 이름 | 상태 | 실패 원인 |
 |---|---|---|---|
 | 2026-04-28 | distill_l1_no_extracted | FAILED (즉시) | albumentations 버전 비호환 |
-| 2026-04-29 | distill_l1_no_extracted | FAILED (즉시 ×여러번) | 설정 오류 (빠른 실패) |
 | 2026-04-29 ~ 05-01 | distill_l1_no_extracted | **FINISHED** | — (소규모 데이터로 첫 성공) |
 | 2026-05-08 ~ 05-11 | distill_l1_no_extracted | **FINISHED** | — (CVPR2024 데이터 full 학습) |
 | 2026-05-12 ~ 05-13 | distill_l1_no_extracted | KILLED | 외부 강제 종료 |
-| 2026-05-13 (13:54) | distill_l1_no_extracted | FAILED (즉시) | 설정 오류 |
 | 2026-05-13 (13:55) | distill_l1_no_extracted | FAILED (3h) | **데이터셋 누락 파일** (FileNotFoundError) |
-| 2026-05-13 (17:11) | distill_l1_train_npz_all | FAILED (16min) | 미상 (빠른 실패) |
 | 2026-05-13 (17:27) | distill_l1_train_npz_all | KILLED | 외부 강제 종료 (5h36m) |
-| 2026-05-14 (09:13) | distill_l1_train_npz_all | FAILED (45min) | 미상 |
 | 2026-05-14 ~ 05-17 | distill_l1_npz_clean | **FINISHED** | — (최종 성공) |
 
 ---
