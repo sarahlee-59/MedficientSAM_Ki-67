@@ -46,10 +46,11 @@ Next.js API 라우트 (프록시)
 
 | 경로 | 역할 |
 |---|---|
-| `app/realtime/page.tsx` | 메인 어노테이션 UI + 추론 호출 |
+| `app/realtime/page.tsx` | 메인 어노테이션 UI + 추론 호출 (단일 파일, 컴포넌트 통합) |
+| `app/realtime/utils/segmentation.ts` | 마스크 → 윤곽선 변환 유틸 |
+| `app/realtime/types.ts` | 공용 타입 정의 |
 | `app/api/encode/route.ts` | FastAPI `/encode` 프록시 |
 | `app/api/decode/route.ts` | FastAPI `/decode` 프록시 |
 | `app/api/infer/route.ts` | FastAPI `/infer` 프록시 (fallback) |
-| `app/realtime/utils/segmentation.ts` | 마스크 → 윤곽선 변환 유틸 |
-| `app/realtime/types.ts` | 공용 타입 정의 |
-| `public/models/` | ONNX 모델 파일 (encoder/decoder) |
+| `app/benchmark/page.tsx` | 브라우저 ONNX 추론 속도 벤치마크 (onnxruntime-web) |
+| `public/models/` | ONNX INT8 모델 파일 — benchmark 페이지 전용 |
