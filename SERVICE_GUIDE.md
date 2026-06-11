@@ -33,21 +33,26 @@ echo $! > server.pid
 kill $(cat server.pid)
 ```
 
-### 2. 프론트엔드 (포트 3000)
+### 2. 프론트엔드 (포트 3000) — systemd 서비스
 
 ```bash
-cd /mnt/Disk1/sylee/frontend
+# 상태 확인
+sudo systemctl status ki67-frontend
 
-# 최초 1회
-npm install && npm run build
+# 시작 / 중지 / 재시작
+sudo systemctl start ki67-frontend
+sudo systemctl stop ki67-frontend
+sudo systemctl restart ki67-frontend
 
-# 실행
-nohup npm start > ../frontend.log 2>&1 &
-echo $! > ../frontend.pid
-
-# 중지
-kill $(cat ../frontend.pid)
+# 로그
+journalctl -u ki67-frontend -f
 ```
+
+> 부팅 시 자동 시작됩니다 (`enabled`). 코드 변경 후에는 재빌드 필요:
+> ```bash
+> cd /mnt/Disk1/sylee/frontend && npm run build
+> sudo systemctl restart ki67-frontend
+> ```
 
 ### 3. 접속
 

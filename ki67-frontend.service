@@ -1,0 +1,16 @@
+[Unit]
+Description=Ki-67 Frontend (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=infinitt
+WorkingDirectory=/mnt/Disk1/sylee/frontend/.next/standalone
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+ExecStart=/home/infinitt/.nvm/versions/node/v24.15.0/bin/node server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
