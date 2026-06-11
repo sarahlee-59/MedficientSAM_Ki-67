@@ -1,7 +1,7 @@
 # Ki-67 Nucleus Segmentation — Training Pipeline & Web Service
 
 Ki-67 IHC 병리 이미지에서 핵(nucleus)을 클릭 한 번으로 세그멘테이션하는 서비스.  
-SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-tuning, ONNX INT8 변환까지의 전체 파이프라인과 서버 추론 기반 웹 서비스를 포함합니다.
+EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVINO FP32 배포까지의 전체 파이프라인과 서버 추론 기반 웹 서비스를 포함합니다.
 
 ---
 
@@ -10,8 +10,7 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 ```
 .
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
-├── EXPERIMENT_LOG.md                 # 실험 로그
-├── TRAINING_ANALYSIS.md              # 학습 결과 분석
+├── EXPERIMENT_LOG.md                 # 실험 로그 및 학습 결과 분석
 │
 ├── medficientsam/                    # 학습 프레임워크 (Distillation + Fine-tuning)
 │   ├── src/                         # 모델, 데이터셋, 손실함수, 학습/추론/export 코드
@@ -36,6 +35,8 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 │   │   └── utils/                   # 로깅, 전처리 유틸
 │   ├── configs/                     # Ki-67 실험 Hydra 설정
 │   ├── deployment/                  # 추론 배포 패키지
+│   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB (ONNX 원본)
+│   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB  (ONNX 원본)
 │   │   ├── openvino/                # OpenVINO FP32 — 현재 운영 중 (e2e ~125ms)
 │   │   │   ├── encoder.xml / .bin   # FP32 인코더 IR ~167MB
 │   │   │   ├── decoder.xml / .bin   # FP32 디코더 IR ~19MB
@@ -43,8 +44,6 @@ SAM ViT-B → EfficientViT-L1 Knowledge Distillation + Ki-67 핵 데이터 Fine-
 │   │   │   ├── server.py            # FastAPI 추론 서버
 │   │   │   └── README.md
 │   │   └── onnx/                    # ONNX INT8 — 참고용 (e2e ~637ms)
-│   │       ├── encoder.quantized.onnx  # INT8 인코더 ~44MB
-│   │       ├── decoder.quantized.onnx  # INT8 디코더 ~9MB
 │   │       ├── infer.py             # Ki67Segmenter 클래스 (onnxruntime)
 │   │       ├── server.py            # FastAPI 추론 서버
 │   │       └── README.md
@@ -96,23 +95,25 @@ SAM ViT-B Prompt Encoder + Mask Decoder
 
 ## 학습 파이프라인
 
-### 1단계: Knowledge Distillation
+### 1단계: Knowledge Distillation (배포 미채택)
 
-EfficientViT-L1 image encoder를 SAM ViT-B encoder의 출력(image embeddings)에 MSE 회귀로 학습.
+EfficientViT-L1 image encoder를 SAM ViT-B encoder의 출력(image embeddings)에 MSE 회귀로 학습.  
+실험 완료(400K steps, loss ▼50.9%)했으나 공식 pretrained 기반 fine-tuning 대비 성능이 낮아 최종 배포에서 제외됨.  
+실험 상세는 `EXPERIMENT_LOG.md` 참고.
 
 ```bash
 cd medficientsam
 bash train_scripts/distill_l1.sh
 # → configs/experiment/distill_l1_no_extracted.yaml
 # → 데이터: train_npz/ (CVPR 2024 MedSAM, 12개 모달리티, 최대 400k 샘플)
-# → 8 epochs, AdamW, WandB 로깅
+# → 8 epochs, AdamW, MLflow 로깅
 ```
 
-### 2단계: Fine-tuning (Ki-67 핵 데이터)
+### 2단계: Fine-tuning (Ki-67 핵 데이터) — 배포 채택
 
 > Fine-tuning 설계 및 실행은 별도로 진행됐습니다.
 
-Distill된 encoder + SAM decoder를 병리 핵 데이터로 파인튜닝. 두 가지 조합으로 실험:
+**EfficientViT-SAM L1 공식 pretrained** 가중치를 기반으로 병리 핵 데이터로 파인튜닝. 두 가지 조합으로 실험:
 
 | 실험 | 데이터 | 총 패치 |
 |------|--------|---------|
@@ -194,7 +195,7 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 ## 배포 패키지
 
 > **ONNX 모델 파일은 GitHub Releases에서 다운로드하세요.**  
-> `encoder.quantized.onnx` (~44MB) + `decoder.quantized.onnx` (~9MB)를 `Ki-67_service/deployment/onnx/`에 배치.
+> `encoder.quantized.onnx` (~44MB) + `decoder.quantized.onnx` (~9MB)를 `Ki-67_service/deployment/`에 배치.
 
 ### 의존성 (PyTorch 불필요)
 
@@ -209,8 +210,8 @@ from Ki-67_service.deployment.onnx.infer import Ki67Segmenter
 import numpy as np
 
 seg = Ki67Segmenter(
-    encoder_path="deployment/onnx/encoder.quantized.onnx",
-    decoder_path="deployment/onnx/decoder.quantized.onnx",
+    encoder_path="deployment/encoder.quantized.onnx",
+    decoder_path="deployment/decoder.quantized.onnx",
 )
 
 # image: (H, W, 3) uint8 RGB
@@ -228,7 +229,8 @@ masks_a = seg.decode(emb, points_a, image.shape[:2])
 masks_b = seg.decode(emb, points_b, image.shape[:2])
 ```
 
-자세한 CLI 사용법은 [`Ki-67_service/deployment/onnx/README.md`](Ki-67_service/deployment/onnx/README.md) 참고.
+자세한 CLI 사용법은 [`Ki-67_service/deployment/onnx/README.md`](Ki-67_service/deployment/onnx/README.md),  
+OpenVINO 서버 사용법은 [`Ki-67_service/deployment/openvino/README.md`](Ki-67_service/deployment/openvino/README.md) 참고.
 
 ---
 

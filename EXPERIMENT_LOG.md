@@ -132,6 +132,23 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 
 ## 최종 성공 Run — distill_l1_npz_clean_20260514
 
+### 학습 설정
+
+| 항목 | 값 |
+|---|---|
+| Teacher | MedSAM (SAM ViT-B), `medsam_vit_b.pth` — 학습 중 동결 |
+| Student | EfficientViT-SAM L1 (`pretrained=False`) |
+| 학습 파라미터 | 43,585,568개 (전체 133,256,480개 중 student만) |
+| 데이터 소스 | `train_npz/` (Pathology_new 제외), limit_sample=400,000 |
+| Teacher 입력 해상도 | 1024×1024 / Student 입력 해상도 512×512 |
+| Embedding 사전 추출 | 없음 — 매 step on-the-fly 추론 |
+| Batch size | 8 / Num workers 8 |
+| Epochs | 8 (50,000 steps/epoch, 총 400,000 steps) |
+| Optimizer | AdamW (lr=0.075, weight_decay=0.0005) |
+| LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
+| Precision | bf16-mixed / Gradient clip 0.5 |
+| Checkpoint 저장 | 10,000 step마다 |
+
 **핵심 변경사항**:
 
 | 항목 | 이전 | 이번 |

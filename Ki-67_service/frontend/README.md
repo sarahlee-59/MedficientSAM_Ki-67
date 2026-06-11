@@ -7,7 +7,8 @@ Ki-67 세그멘테이션 서비스의 Next.js 프론트엔드입니다.
 ### 1. 추론 서버 먼저 실행 (필수)
 
 ```bash
-cd ../deployment
+cd ../deployment/openvino
+pip install -r requirements.txt   # 최초 1회
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
