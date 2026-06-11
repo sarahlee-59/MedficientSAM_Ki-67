@@ -16,21 +16,19 @@ ss -tlnp | grep -E '3000|8000'
 
 ---
 
-### 1. 추론 서버 (포트 8000)
+### 1. 추론 서버 (포트 8000) — systemd 서비스
 
 ```bash
-cd /mnt/Disk1/sylee/deployment/openvino
+# 상태 확인
+sudo systemctl status ki67-inference
 
-# 최초 1회
-pip install fastapi "uvicorn[standard]" python-multipart
-pip install -r requirements.txt
+# 시작 / 중지 / 재시작
+sudo systemctl start ki67-inference
+sudo systemctl stop ki67-inference
+sudo systemctl restart ki67-inference
 
-# 실행
-nohup uvicorn server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-echo $! > server.pid
-
-# 중지
-kill $(cat server.pid)
+# 로그
+journalctl -u ki67-inference -f
 ```
 
 ### 2. 프론트엔드 (포트 3000) — systemd 서비스

@@ -1,6 +1,6 @@
 [Unit]
 Description=Ki-67 Frontend (Next.js)
-After=network.target
+After=network.target ki67-inference.service
 
 [Service]
 Type=simple

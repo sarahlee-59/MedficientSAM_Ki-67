@@ -1,0 +1,14 @@
+[Unit]
+Description=Ki-67 Inference Server (FastAPI + OpenVINO)
+After=network.target
+
+[Service]
+Type=simple
+User=infinitt
+WorkingDirectory=/mnt/Disk1/sylee/deployment/openvino
+ExecStart=/home/infinitt/.local/bin/uvicorn server:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
