@@ -111,59 +111,20 @@ Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션�
 | 추론 엔진 | OpenVINO FP32 (Intel CPU) |
 | 평균 추론 속도 | 인코딩 75 ms + 디코딩 50 ms ≈ **e2e 125 ms** |
 | 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
-| 프론트엔드 | Next.js (포트 3000) |
-| 추론 서버 | FastAPI (포트 8000) |
+| 프론트엔드 | Next.js (포트 3000, systemd) |
+| 추론 서버 | FastAPI + OpenVINO (포트 8000) |
 
 ---
 
-## 인프라 구성
+## 실행 방법
 
-### 사전 준비
-
-```
-Ki-67_service/
-├── deployment/
-│   └── onnx/              ← ONNX 모델 파일 (frontend 컨테이너에 마운트됨)
-│       ├── encoder.quantized.onnx
-│       └── decoder.quantized.onnx
-└── frontend/
-    └── certs/             ← nginx SSL 인증서 (HTTP만 쓰면 빈 디렉토리라도 필요)
-```
-
----
-
-### 현재 Docker 구성
-
-```
-외부 :3000
-    │
-  [nginx]          docker-compose — 단순 리버스 프록시
-    │
-  [frontend]       docker-compose — Next.js (expose만, 외부 직접 접근 불가)
-    │
-  [FastAPI]        Docker 외부 — uvicorn 직접 실행 (포트 8000)
-```
-
-`docker-compose.yml`은 `frontend`(Next.js)와 `nginx` 두 서비스를 관리한다.  
-`frontend`는 `expose`만 선언되어 있어 Docker 네트워크 내부에서만 접근 가능하고, nginx가 외부 포트 3000을 받아 내부로 전달한다.
-
-### nginx의 역할과 필요성
-
-현재 `nginx.conf`는 HTTP 리버스 프록시 하나만 수행한다(SSL 미설정, 정적 파일 분리 없음).  
-즉, **nginx가 없어도 동일하게 동작한다.** `docker-compose.yml`에서 `expose → ports`로 바꾸면 nginx 없이 frontend를 직접 외부에 노출할 수 있다.
-
-nginx가 유효해지는 시점:
-- HTTPS 전환 시 (SSL 인증서 + `listen 443 ssl` 설정)
-- 여러 서비스를 단일 포트로 묶을 때 (경로 기반 라우팅)
-
-### Docker 없이 실행하는 방법
-
-Docker를 쓰지 않아도 된다. 아래 순서로 직접 실행 가능하다.
+### 1. FastAPI 추론 서버
 
 ```bash
-# 1. FastAPI 추론 서버
 cd /mnt/Disk1/sylee/Ki-67_service/deployment/openvino
-pip install fastapi "uvicorn[standard]" python-multipart openvino numpy opencv-python
+
+# 최초 1회 — 의존성 설치
+pip install -r requirements.txt
 
 # 포그라운드 실행
 uvicorn server:app --host 0.0.0.0 --port 8000
@@ -173,73 +134,23 @@ nohup uvicorn server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
 echo $! > server.pid
 
 # 중지
-kill $(cat /mnt/Disk1/sylee/Ki-67_service/deployment/openvino/server.pid)
+kill $(cat server.pid)
+```
 
-# 2. Next.js 프론트엔드
+### 2. Next.js 프론트엔드
+
+```bash
 cd /mnt/Disk1/sylee/Ki-67_service/frontend
-ONNX_DIR=/mnt/Disk1/sylee/Ki-67_service/deployment/onnx npm run build
-ONNX_DIR=/mnt/Disk1/sylee/Ki-67_service/deployment/onnx npm start
-```
 
-### Docker Compose로 실행하는 방법
+# 최초 1회 — 의존성 설치
+npm install
 
-```bash
-cd /mnt/Disk1/sylee/Ki-67_service
-```
+# 프로덕션 빌드 후 실행
+npm run build
+npm start
 
-#### 시작
-
-```bash
-# 이미지 빌드 후 백그라운드 실행
-docker compose up -d --build
-
-# 이미 빌드된 이미지로 시작 (코드 변경 없을 때)
-docker compose up -d
-```
-
-#### 중지 / 재시작
-
-```bash
-docker compose down            # 컨테이너 중지 + 삭제
-docker compose down -v         # 볼륨까지 삭제 (주의)
-docker compose restart         # 컨테이너 재시작 (이미지 재빌드 없음)
-```
-
-#### 특정 서비스만 재빌드
-
-```bash
-# frontend 코드 변경 후 frontend만 재빌드
-docker compose up -d --build frontend
-```
-
-#### 상태 확인 / 로그
-
-```bash
-docker compose ps              # 실행 중인 서비스 목록
-docker compose logs -f         # 전체 로그 스트림
-docker compose logs -f frontend  # frontend 로그만
-docker compose logs -f nginx     # nginx 로그만
-```
-
-#### 컨테이너 내부 접속
-
-```bash
-docker compose exec frontend sh
-docker compose exec nginx sh
-```
-
----
-
-### 전체 서비스 기동 순서
-
-```bash
-# 1. FastAPI 추론 서버 먼저 실행
-cd /mnt/Disk1/sylee/Ki-67_service/deployment/openvino
-uvicorn server:app --host 0.0.0.0 --port 8000 &
-
-# 2. Docker Compose로 frontend + nginx 실행
-cd /mnt/Disk1/sylee/Ki-67_service
-docker compose up -d --build
+# 개발 모드 (hot reload)
+npm run dev
 ```
 
 접속 주소: **http://10.10.40.194:3000/realtime**

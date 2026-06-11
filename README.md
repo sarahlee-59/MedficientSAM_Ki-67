@@ -45,13 +45,11 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   │   │   ├── realtime/            # 실시간 세그멘테이션 UI (서버 추론)
 │   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
 │   │   └── public/samples/          # 샘플 이미지
-│   ├── benchmark/                   # 추론 속도 벤치마크
-│   │   ├── benchmark_speed.py       # ONNX-INT8 vs OpenVINO-FP32 측정 스크립트
-│   │   ├── benchmark_results.md     # 결과 요약
-│   │   ├── images/                  # 벤치마크용 샘플 이미지
-│   │   └── results/                 # 실측 JSON (ki67_hybrid_bench1~5)
-│   ├── docker-compose.yml           # Next.js 컨테이너 구성
-│   └── nginx.conf                   # 리버스 프록시 설정
+│   └── benchmark/                   # 추론 속도 벤치마크
+│       ├── benchmark_speed.py       # ONNX-INT8 vs OpenVINO-FP32 측정 스크립트
+│       ├── benchmark_results.md     # 결과 요약
+│       ├── images/                  # 벤치마크용 샘플 이미지
+│       └── results/                 # 실측 JSON (ki67_hybrid_bench1~5)
 │
 └── train_npz/                       # 학습 데이터 (gitignore, DATASET.md 참고)
 ```
