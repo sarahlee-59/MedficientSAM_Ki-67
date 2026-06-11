@@ -72,19 +72,24 @@ Did you mean: 'Transform3D'?
 ### [2] 2026-04-29 ~ 05-01 — 소규모 데이터 첫 성공
 
 **설정**:
-- 데이터: `train_npz/` 전체, 실제 샘플 약 127,936개
-- batch_size: 16, num_workers: 16 (epoch당 ~15,992 steps)
+- 데이터: CVPR2024 도입 이전 소규모 데이터셋 (`train_npz/` 전체), 유효 2D 슬라이스 약 127,936개
+  - 모달리티 구성: 현재 CVPR2024 기준과 동일하게 CT·MR·PET(3D 볼륨) + XRay·Endoscopy·Pathology_new 등 2D 12개 서브디렉토리였으나, 파일 수가 훨씬 적은 부분 다운로드 상태
+  - CT/MR/PET 3D 볼륨의 유효 비공백 슬라이스 포함 총합이 127,936개 (limit_sample=None, 전량 사용)
+- batch_size: 8 (configs/data/distill_medsam.yaml 기본값; 127,936 / 8 = 15,992 steps/epoch과 일치), num_workers: 16
 - 저장: `weights/distilled-l1/`
 
 **결과**: 8 epoch 완주, 최종 loss **0.00133**  
-데이터 다양성 부족으로 성능 한계 있음 → 대용량 데이터로 재학습 필요.
+데이터 다양성 부족으로 성능 한계 있음 → CVPR2024 MedSAM 전체 데이터로 재학습 필요.
 
 ---
 
 ### [3] 2026-05-08 ~ 05-11 — CVPR2024 데이터 도입
 
 **설정**:
-- 데이터: CVPR2024 MedSAM `train_npz/`, limit_sample=400,000
+- 데이터: CVPR2024 MedSAM 공식 `train_npz/` 전량 (12개 모달리티, 70,864 npz 파일, 유효 슬라이스 ~1,050,000개)
+  - 3D: CT 3,102개(평균 228 슬라이스/파일), MR 4,881개(평균 55 슬라이스/파일), PET 345개(평균 44 슬라이스/파일)
+  - 2D: XRay 22,178개, Endoscopy 12,924개, Pathology_new 19,062개, US 1,646개, Dermoscopy 2,000개, OCT 1,436개, Microscopy 1,000개, Fundus 1,057개, Mammography 1,233개
+  - `limit_sample=400,000` 으로 seed=42 랜덤 샘플링 → 실제 사용 샘플 40만 개
 - batch_size: 16 (epoch당 25,000 steps), ckpt_path: None
 - 저장: `logs/train/runs/2026-05-08_09-42-08/checkpoints/`
 
@@ -106,14 +111,19 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 2D_S26-03104,..._r06_c07.npz
 ```
 
-이전 run의 `weights/distilled-l1-mlflow/last.ckpt`에서 resume 시도 중 발생.  
-`Pathology_new` 서브셋 내 다수 파일이 디스크에 존재하지 않음 (불완전한 다운로드 추정).
+- 데이터: run [3]과 동일한 CVPR2024 `train_npz/` (Pathology_new 포함 전체), limit_sample=400,000
+- `weights/distilled-l1-mlflow/last.ckpt` (batch_size=16, step_050000 시점)에서 resume 시도
+- `Pathology_new/` 서브셋은 19,062개 npz 경로가 glob에 잡히지만, `gts_npz_s128/` 하위 다수 파일이 실제 디스크에 없음 (불완전한 다운로드 추정)
+- seed=42 샘플링 결과 Epoch 2에서 해당 누락 파일이 처음 접근됨 → Epoch 0~1은 우연히 정상 파일만 사용
 
-**해결 방향**: `Pathology_new` 제외 정제 데이터(`npz_clean`)로 처음부터 재학습.
+**해결 방향**: `Pathology_new` 제외 정제 데이터(`npz_clean`)로 scratch 재학습.
 
 ---
 
 ### [5] 2026-05-13 (17:27) — 외부 강제 종료
+
+- 데이터: run [4]와 동일한 CVPR2024 `train_npz/` (Pathology_new 포함), limit_sample=400,000  
+  (Pathology_new 누락 문제는 아직 제거 전, 같은 데이터로 재시도한 run)
 
 **상황**: Epoch 0, 63% 진행 중 (1.57 it/s — 정상 속도) 외부 KILL.  
 학습 자체 문제는 없었음. 다른 프로세스와 충돌 또는 수동 중단으로 추정.
