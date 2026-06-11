@@ -129,11 +129,13 @@ Intel oneDNN 커널 활용으로 FP32 ONNX 대비 약 1.65× 빠른 추론 속�
 대부분의 데이터는 [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs)에서 다운로드.  
 챌린지 참가 후 [챌린지 페이지](https://www.codabench.org/competitions/1847/)에서도 접근 가능.
 
-> **주의 — CT 전체·Dermoscopy는 공식 Google Drive에 미포함**  
-> 논문이 11개 모달리티를 사용했다고 명시되어 있어 동일하게 구성하려 했으나, 공식 Drive에 CT와 Dermoscopy가 빠져 있었습니다.  
-> 챌린지 공식 홈페이지에 새롭게 추가된 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보했습니다.  
+> **주의 — CT·Dermoscopy·PanNuke·MoNuSeg는 공식 Google Drive에 미포함**  
+> 논문이 11개 모달리티를 사용했다고 명시되어 있어 동일하게 구성하려 했으나, 공식 Drive에 이 데이터셋들이 빠져 있었습니다.  
+> 챌린지 공식 홈페이지([Codabench](https://www.codabench.org/competitions/1847/))에 새롭게 추가된 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보했습니다.  
 > - **CT**: Google Sheet 경유, 챌린지 주최 측이 변환한 NPZ를 그대로 사용  
 > - **Dermoscopy**: Google Sheet에서 원본 이미지 다운로드 → stride 128, crop 256×256 tiling 후 NPZ 생성  
+> - **PanNuke**: Google Sheet에서 원본 다운로드 → tiling 없이 256×256 resize → NPZ 생성  
+> - **MoNuSeg 2018**: Google Sheet에서 원본 다운로드 → 1000×1000 → 2×2 crop → 256×256 resize → NPZ 생성  
 > - **TotalSegmentator 선정 이유**: 전신 117개 부위를 단일 데이터셋으로 커버하여 CT 학습 범위를 극대화
 
 ```
@@ -166,8 +168,8 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 | Endoscopy, Fundus, MR, OCT 등 9개 모달리티 | 챌린지 주최 측 배포 NPZ | [MedSAM 공식 레포](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM) |
 | CT 5종 | 챌린지 주최 측 (Google Sheet 경유) | 이미 NPZ 형태 제공 |
 | Dermoscopy (ISIC-2017) | 내부 전처리 | Google Sheet 원본 → stride 128, 256×256 tiling → NPZ |
-| PanNuke | 내부 전처리 | tiling 없이 256×256 resize → NPZ |
-| MoNuSeg 2018 | 내부 전처리 | 1000×1000 → 2×2 crop → 256×256 resize → NPZ |
+| PanNuke | 내부 전처리 (Google Sheet 경유) | Google Sheet 원본 → tiling 없이 256×256 resize → NPZ |
+| MoNuSeg 2018 | 내부 전처리 (Google Sheet 경유) | Google Sheet 원본 → 1000×1000 → 2×2 crop → 256×256 resize → NPZ |
 | Ki-67 슬라이드 (`gts_npz_s128/`) | 자체 병리 파이프라인 | 256×256, stride 128 — `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` |
 
 ---
