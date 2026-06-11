@@ -2,7 +2,7 @@
 
 Ki-67 세그멘테이션 서비스의 Next.js 프론트엔드입니다.
 
-실행 방법은 [`Ki-67_service/README.md`](../README.md) 참고.
+실행 방법은 [`README.md`](../README.md) 참고.
 
 ## 환경 변수
 

@@ -12,44 +12,43 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # 실험 로그 및 학습 결과 분석
 │
-├── Ki-67_service/                   # Ki-67 특화 파이프라인 + 웹 서비스
-│   ├── src/                         # 학습 코드
-│   │   ├── train.py                 # Hydra 학습 진입점
-│   │   ├── export_onnx.py           # ONNX + INT8 양자화 export
-│   │   ├── export_torch.py          # PyTorch checkpoint export
-│   │   ├── infer.py                 # 검증셋 추론
-│   │   ├── models/                  # distill_module, finetune_module, efficientvit 등
-│   │   ├── data/                    # MedSAMDataModule, MedSAMDistillDataset 등
-│   │   ├── losses/                  # SAMLoss
-│   │   ├── metrics/                 # generalized_dice
-│   │   └── utils/                   # 로깅, 전처리 유틸
-│   ├── configs/                     # Hydra 설정
-│   ├── deployment/                  # 추론 배포 패키지
-│   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB
-│   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB
-│   │   ├── openvino/                # OpenVINO FP32 — 현재 운영 중
-│   │   │   ├── encoder.xml / .bin   # FP32 인코더 IR ~167MB
-│   │   │   ├── decoder.xml / .bin   # FP32 디코더 IR ~19MB
-│   │   │   ├── infer.py             # Ki67Segmenter 클래스 (openvino)
-│   │   │   ├── server.py            # FastAPI 추론 서버
-│   │   │   ├── example.py           # 단독 실행 예시
-│   │   │   └── requirements.txt
-│   │   └── onnx/                    # ONNX INT8 — 참고용
-│   │       ├── infer.py             # Ki67Segmenter 클래스 (onnxruntime)
-│   │       ├── server.py            # FastAPI 추론 서버
-│   │       └── example.py           # 단독 실행 예시
-│   ├── frontend/                    # Next.js 웹 서비스 (포트 3000)
-│   │   ├── app/
-│   │   │   ├── api/encode/          # FastAPI 프록시 — encode 전용
-│   │   │   ├── api/decode/          # FastAPI 프록시 — decode 전용
-│   │   │   ├── api/infer/           # FastAPI 프록시 — encode+decode 통합
-│   │   │   ├── realtime/            # 실시간 세그멘테이션 UI
-│   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
-│   │   └── public/samples/          # 샘플 이미지
-│   └── benchmark/                   # 추론 속도 벤치마크
-│       ├── benchmark_speed.py       # ONNX-INT8 vs OpenVINO-FP32 측정
-│       ├── benchmark_results.md     # 결과 요약
-│       └── results/                 # 실측 JSON (ki67_hybrid_bench1~5)
+├── src/                             # 학습 코드
+│   ├── train.py                     # Hydra 학습 진입점
+│   ├── export_onnx.py               # ONNX + INT8 양자화 export
+│   ├── export_torch.py              # PyTorch checkpoint export
+│   ├── infer.py                     # 검증셋 추론
+│   ├── models/                      # distill_module, finetune_module, efficientvit 등
+│   ├── data/                        # MedSAMDataModule, MedSAMDistillDataset 등
+│   ├── losses/                      # SAMLoss
+│   ├── metrics/                     # generalized_dice
+│   └── utils/                       # 로깅, 전처리 유틸
+├── configs/                         # Hydra 설정
+├── deployment/                      # 추론 배포 패키지
+│   ├── encoder.quantized.onnx       # INT8 인코더 ~44MB
+│   ├── decoder.quantized.onnx       # INT8 디코더 ~9MB
+│   ├── openvino/                    # OpenVINO FP32 — 현재 운영 중
+│   │   ├── encoder.xml / .bin       # FP32 인코더 IR ~167MB
+│   │   ├── decoder.xml / .bin       # FP32 디코더 IR ~19MB
+│   │   ├── infer.py                 # Ki67Segmenter 클래스 (openvino)
+│   │   ├── server.py                # FastAPI 추론 서버
+│   │   ├── example.py               # 단독 실행 예시
+│   │   └── requirements.txt
+│   └── onnx/                        # ONNX INT8 — 참고용
+│       ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime)
+│       ├── server.py                # FastAPI 추론 서버
+│       └── example.py               # 단독 실행 예시
+├── frontend/                        # Next.js 웹 서비스 (포트 3000)
+│   ├── app/
+│   │   ├── api/encode/              # FastAPI 프록시 — encode 전용
+│   │   ├── api/decode/              # FastAPI 프록시 — decode 전용
+│   │   ├── api/infer/               # FastAPI 프록시 — encode+decode 통합
+│   │   ├── realtime/                # 실시간 세그멘테이션 UI
+│   │   └── benchmark/               # 추론 속도 벤치마크 페이지
+│   └── public/samples/              # 샘플 이미지
+├── benchmark/                       # 추론 속도 벤치마크
+│   ├── benchmark_speed.py           # ONNX-INT8 vs OpenVINO-FP32 측정
+│   ├── benchmark_results.md         # 결과 요약
+│   └── results/                     # 실측 JSON (ki67_hybrid_bench1~5)
 │
 └── train_npz/                       # 학습 데이터 (gitignore, DATASET.md 참고)
 ```
@@ -89,7 +88,7 @@ SAM ViT-B Prompt Encoder + Mask Decoder
 
 EfficientViT-L1 image encoder를 SAM ViT-B encoder 출력에 MSE 회귀로 학습.  
 400K steps, loss ▼50.9% 완료했으나 공식 pretrained 기반 fine-tuning 대비 성능이 낮아 최종 배포에서 제외.  
-실험 상세는 `EXPERIMENT_LOG.md` 참고.
+실험 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
 
 ### 2단계: Fine-tuning (Ki-67 핵 데이터) — 배포 채택
 
@@ -135,19 +134,70 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 
 ## 배포 패키지
 
-> ONNX 모델 파일은 GitHub Releases에서 다운로드 후 `Ki-67_service/deployment/`에 배치.
+> ONNX 모델 파일은 GitHub Releases에서 다운로드 후 `deployment/`에 배치.
 
 사용법 및 API 상세:
-- ONNX INT8: [`deployment/onnx/README.md`](Ki-67_service/deployment/onnx/README.md)
-- OpenVINO FP32: [`deployment/openvino/README.md`](Ki-67_service/deployment/openvino/README.md)
+- ONNX INT8: [`deployment/onnx/README.md`](deployment/onnx/README.md)
+- OpenVINO FP32: [`deployment/openvino/README.md`](deployment/openvino/README.md)
 
 ---
 
-## 웹 서비스
+## 웹 서비스 실행
 
-실행 방법 및 UI 사용 가이드는 [`Ki-67_service/README.md`](Ki-67_service/README.md) 참고.
+### 이미 실행 중인지 확인
 
-### 아키텍처
+```bash
+ss -tlnp | grep -E '3000|8000'
+```
+
+두 포트가 모두 보이면 바로 접속 → **http://10.10.40.194:3000/realtime**
+
+---
+
+### 1. 추론 서버 (포트 8000)
+
+```bash
+cd /mnt/Disk1/sylee/deployment/openvino
+
+# 최초 1회
+pip install fastapi "uvicorn[standard]" python-multipart
+pip install -r requirements.txt
+
+# 실행
+nohup uvicorn server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+echo $! > server.pid
+
+# 중지
+kill $(cat server.pid)
+```
+
+### 2. 프론트엔드 (포트 3000)
+
+```bash
+cd /mnt/Disk1/sylee/frontend
+
+# 최초 1회
+npm install && npm run build
+
+# 실행
+nohup npm start > ../frontend.log 2>&1 &
+echo $! > ../frontend.pid
+
+# 중지
+kill $(cat ../frontend.pid)
+```
+
+### 3. 접속
+
+```
+http://10.10.40.194:3000/realtime
+```
+
+> 두 서버 모두 실행 후 5~10초 뒤 접속하세요.
+
+---
+
+## 웹 서비스 아키텍처
 
 ```
 사용자 브라우저
@@ -166,6 +216,25 @@ FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
 |--------|-------:|-------------:|----:|
 | ONNX INT8 | 545 ms | 92 ms | 637 ms |
 | **OpenVINO FP32** | **75 ms** | **50 ms** | **125 ms** |
+
+### API 엔드포인트 (FastAPI, 포트 8000)
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/encode` | 이미지 업로드 → session_id 반환 (인코더 실행) |
+| POST | `/decode` | session_id + 좌표 → 마스크 반환 (디코더만 실행) |
+| POST | `/infer` | 이미지 + 좌표 → 마스크 (encode+decode 통합 fallback) |
+
+---
+
+## 기술 정보
+
+| 항목 | 내용 |
+|------|------|
+| 추론 엔진 | OpenVINO FP32 (Intel CPU) |
+| 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
+| 프론트엔드 | Next.js (포트 3000) |
+| 추론 서버 | FastAPI + OpenVINO (포트 8000) |
 
 ---
 

@@ -17,9 +17,9 @@ distillation 기반 fine-tuning은 성능 불량으로 채택되지 않았으며
 
 [2] Export
     설정:   configs/experiment/export_finetuned_l1_onnx.yaml
-    출력:   Ki-67_service/deployment/encoder.quantized.onnx (INT8)
-             Ki-67_service/deployment/decoder.quantized.onnx (INT8)
-             Ki-67_service/deployment/openvino/{encoder,decoder}.{xml,bin} (FP32)
+    출력:   deployment/encoder.quantized.onnx (INT8)
+             deployment/decoder.quantized.onnx (INT8)
+             deployment/openvino/{encoder,decoder}.{xml,bin} (FP32)
 
         ↓
 
