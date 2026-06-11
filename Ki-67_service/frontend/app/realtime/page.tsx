@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /realtime — Ki-67 실시간 세그멘테이션 (브라우저 ONNX)
+ * /realtime — Ki-67 실시간 세그멘테이션 (OpenVINO 서버)
  *
  * ── 인터랙션 모델 ─────────────────────────────────────────────────────────
  *  - 우측에서 라벨(양성/음성)과 프롬프트 도형(△□⬠⬡)을 미리 선택
@@ -17,8 +17,8 @@
  *  - Esc               → 삭제 모드 토글 / ctrl + Esc → 전체 삭제
  *
  * ── 추론 ───────────────────────────────────────────────────────────────────
- *  미리보기·확정·재추론 모두 브라우저 ONNX (onnxruntime-web, WASM/CPU)
- *  모델 파일: /api/onnx/encoder|decoder (서버 디스크의 *.onnx 서빙)
+ *  미리보기·확정·재추론 모두 서버 OpenVINO (FastAPI, 포트 8000)
+ *  encode → decode 분리 호출로 첫 응답 최소화
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1320,7 +1320,7 @@ export default function RealtimePage() {
     const confirmed = cells.filter((c) => !c.pending);
     return {
       image: imageFile?.name ?? "unknown",
-      backend: "onnx-browser",
+      backend: "openvino-server",
       model: MODEL_NAME,
       prompt_shape: {
         sides: shapeSides,
@@ -1913,8 +1913,8 @@ export default function RealtimePage() {
         <div className="px-4 py-3 border-b border-gray-800">
           <div className="flex items-center justify-between">
             <h1 className="text-sm font-semibold tracking-wide">Ki-67 · Realtime</h1>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-900/50 text-emerald-300 border border-emerald-700/60" title="브라우저 ONNX 추론 (onnxruntime-web)">
-              ONNX
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-900/50 text-emerald-300 border border-emerald-700/60" title="OpenVINO 서버 추론 (FastAPI, 포트 8000)">
+              OpenVINO
             </span>
           </div>
         </div>

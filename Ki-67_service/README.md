@@ -2,7 +2,67 @@
 
 Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션하고 Ki-67 지수를 계산하는 서비스입니다.
 
-**접속 주소:** http://10.10.40.194:3000/realtime
+---
+
+## 실행 방법
+
+### 사전 확인
+
+서비스가 이미 실행 중이라면 바로 접속하면 됩니다.
+
+```bash
+# 실행 중인지 확인 (포트 3000 = 프론트엔드, 8000 = 추론 서버)
+ss -tlnp | grep -E '3000|8000'
+```
+
+두 포트가 모두 보이면 → **http://10.10.40.194:3000/realtime** 접속
+
+---
+
+### 1. 추론 서버 시작 (포트 8000)
+
+```bash
+cd /mnt/Disk1/sylee/Ki-67_service/deployment/openvino
+
+# 최초 1회 — 의존성 설치
+pip install fastapi "uvicorn[standard]" python-multipart
+pip install -r requirements.txt
+
+# 백그라운드 실행
+nohup uvicorn server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+echo $! > server.pid
+
+# 실행 확인
+curl -s http://localhost:8000/docs | grep -q "swagger" && echo "OK" || echo "아직 시작 중..."
+
+# 중지
+kill $(cat server.pid)
+```
+
+### 2. 프론트엔드 시작 (포트 3000)
+
+```bash
+cd /mnt/Disk1/sylee/Ki-67_service/frontend
+
+# 최초 1회 — 의존성 설치 및 빌드
+npm install
+npm run build
+
+# 백그라운드 실행
+nohup npm start > ../frontend.log 2>&1 &
+echo $! > ../frontend.pid
+
+# 중지
+kill $(cat ../frontend.pid)
+```
+
+### 3. 접속
+
+```
+http://10.10.40.194:3000/realtime
+```
+
+> 두 서버 모두 실행된 뒤 약 5~10초 후 접속하세요.
 
 ---
 
@@ -111,49 +171,8 @@ Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션�
 | 추론 엔진 | OpenVINO FP32 (Intel CPU) |
 | 평균 추론 속도 | 인코딩 75 ms + 디코딩 50 ms ≈ **e2e 125 ms** |
 | 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
-| 프론트엔드 | Next.js (포트 3000, systemd) |
+| 프론트엔드 | Next.js (포트 3000) |
 | 추론 서버 | FastAPI + OpenVINO (포트 8000) |
-
----
-
-## 실행 방법
-
-### 1. FastAPI 추론 서버
-
-```bash
-cd /mnt/Disk1/sylee/Ki-67_service/deployment/openvino
-
-# 최초 1회 — 의존성 설치
-pip install -r requirements.txt
-
-# 포그라운드 실행
-uvicorn server:app --host 0.0.0.0 --port 8000
-
-# 백그라운드 실행 (nohup)
-nohup uvicorn server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-echo $! > server.pid
-
-# 중지
-kill $(cat server.pid)
-```
-
-### 2. Next.js 프론트엔드
-
-```bash
-cd /mnt/Disk1/sylee/Ki-67_service/frontend
-
-# 최초 1회 — 의존성 설치
-npm install
-
-# 프로덕션 빌드 후 실행
-npm run build
-npm start
-
-# 개발 모드 (hot reload)
-npm run dev
-```
-
-접속 주소: **http://10.10.40.194:3000/realtime**
 
 ---
 
