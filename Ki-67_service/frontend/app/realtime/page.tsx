@@ -43,6 +43,8 @@ type SegmentFn = (image: HTMLImageElement, points: Point[]) => Promise<SegmentRe
 
 const MODEL_NAME = "e11_holdout_int8_server";
 const INFER_URL = "/api/infer";
+const ENCODE_URL = "/api/encode";
+const DECODE_URL = "/api/decode";
 
 const CANVAS_SIZE = 768;
 const SHAPE_OPTIONS: { sides: 3 | 4 | 5 | 6; glyph: string; name: string }[] = [
@@ -391,39 +393,55 @@ export default function RealtimePage() {
 
   const [redoCount, setRedoCount] = useState(0);
 
-  const inferLockRef = useRef<Promise<void>>(Promise.resolve());
   const redoStackRef = useRef<Cell[]>([]);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   const previewInferenceRef = useRef<SegmentFn>(async (image, points) => {
     const t0 = performance.now();
 
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(image, 0, 0);
-    const blob = await new Promise<Blob>((resolve) =>
-      canvas.toBlob(resolve as BlobCallback, "image/png"),
-    );
-
-    const formData = new FormData();
-    formData.append("image", blob, "image.png");
-    formData.append("points", JSON.stringify(points.map((p) => [p.x, p.y])));
-    formData.append("labels", JSON.stringify(points.map((p) => p.label)));
-
-    let releaseLock!: () => void;
-    const myTurn = new Promise<void>((resolve) => { releaseLock = resolve; });
-    const prevLock = inferLockRef.current;
-    inferLockRef.current = myTurn;
-    await prevLock;
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
 
     let json: { mask: number[]; width: number; height: number };
-    try {
-      const res = await fetch(INFER_URL, { method: "POST", body: formData });
+    const sessionId = sessionIdRef.current;
+
+    if (sessionId) {
+      // 빠른 경로: 좌표만 JSON으로 전송 (이미지 전송 없음)
+      const res = await fetch(DECODE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          points: points.map((p) => [p.x, p.y]),
+          labels: points.map((p) => p.label),
+        }),
+        signal: controller.signal,
+      });
+      if (res.status === 404) {
+        // 세션 만료 → fallback
+        sessionIdRef.current = null;
+        throw new Error("session expired");
+      }
       if (!res.ok) throw new Error(`서버 추론 실패: ${res.status}`);
       json = await res.json();
-    } finally {
-      releaseLock();
+    } else {
+      // fallback: 이미지 포함 전송
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext("2d")!.drawImage(image, 0, 0);
+      const blob = await new Promise<Blob>((resolve) =>
+        canvas.toBlob(resolve as BlobCallback, "image/png"),
+      );
+      const formData = new FormData();
+      formData.append("image", blob, "image.png");
+      formData.append("points", JSON.stringify(points.map((p) => [p.x, p.y])));
+      formData.append("labels", JSON.stringify(points.map((p) => p.label)));
+      const res = await fetch(INFER_URL, { method: "POST", body: formData, signal: controller.signal });
+      if (!res.ok) throw new Error(`서버 추론 실패: ${res.status}`);
+      json = await res.json();
     }
 
     const { mask, width: W, height: H } = json;
@@ -673,6 +691,7 @@ export default function RealtimePage() {
     setPan({ x: 0, y: 0 });
 
     imgRef.current = null;
+    sessionIdRef.current = null;
 
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -680,6 +699,20 @@ export default function RealtimePage() {
       imgRef.current = img;
       setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
       URL.revokeObjectURL(url);
+      // 이미지 로드 즉시 인코딩 → session_id 확보 (첫 미리보기 지연 제거)
+      const warmCanvas = document.createElement("canvas");
+      warmCanvas.width = img.naturalWidth;
+      warmCanvas.height = img.naturalHeight;
+      warmCanvas.getContext("2d")!.drawImage(img, 0, 0);
+      warmCanvas.toBlob((blob) => {
+        if (!blob) return;
+        const fd = new FormData();
+        fd.append("image", blob, "image.png");
+        fetch(ENCODE_URL, { method: "POST", body: fd })
+          .then((r) => r.json())
+          .then(({ session_id }) => { sessionIdRef.current = session_id ?? null; })
+          .catch(() => {});
+      }, "image/png");
     };
     img.src = url;
   }
