@@ -149,6 +149,8 @@ configs/local/default.yaml
 /data/
 /logs/
 /weights/
+/weights
+/eval_results/
 .env
 
 # Aim logging
