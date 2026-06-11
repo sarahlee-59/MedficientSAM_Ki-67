@@ -41,6 +41,13 @@ kill $(cat server.pid)
 
 ### 2. 프론트엔드 시작 (포트 3000)
 
+환경변수 확인 후 실행합니다.
+
+```bash
+# frontend/.env.local — 추론 서버 주소 (기본값: http://localhost:8000)
+echo "BACKEND_URL=http://localhost:8000" > /mnt/Disk1/sylee/Ki-67_service/frontend/.env.local
+```
+
 ```bash
 cd /mnt/Disk1/sylee/Ki-67_service/frontend
 
@@ -169,7 +176,7 @@ http://10.10.40.194:3000/realtime
 | 항목 | 내용 |
 |------|------|
 | 추론 엔진 | OpenVINO FP32 (Intel CPU) |
-| 평균 추론 속도 | 인코딩 75 ms + 디코딩 50 ms ≈ **e2e 125 ms** |
+| 추론 성능 | e2e ~125 ms (Intel CPU, 256×256) — 상세 벤치마크는 [루트 README](../README.md#추론-성능-intel-cpu-256256-median-5회) 참고 |
 | 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
 | 프론트엔드 | Next.js (포트 3000) |
 | 추론 서버 | FastAPI + OpenVINO (포트 8000) |

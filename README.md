@@ -25,24 +25,30 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   │   └── utils/                   # 로깅, 전처리 유틸
 │   ├── configs/                     # Ki-67 실험 Hydra 설정
 │   ├── deployment/                  # 추론 배포 패키지
-│   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB (ONNX 원본)
-│   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB  (ONNX 원본)
+│   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB
+│   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB
 │   │   ├── openvino/                # OpenVINO FP32 — 현재 운영 중 (e2e ~125ms)
 │   │   │   ├── encoder.xml / .bin   # FP32 인코더 IR ~167MB
 │   │   │   ├── decoder.xml / .bin   # FP32 디코더 IR ~19MB
 │   │   │   ├── infer.py             # Ki67Segmenter 클래스 (openvino)
 │   │   │   ├── server.py            # FastAPI 추론 서버
+│   │   │   ├── example.py           # 단독 실행 예시
+│   │   │   ├── requirements.txt
 │   │   │   └── README.md
 │   │   └── onnx/                    # ONNX INT8 — 참고용 (e2e ~637ms)
 │   │       ├── infer.py             # Ki67Segmenter 클래스 (onnxruntime)
 │   │       ├── server.py            # FastAPI 추론 서버
+│   │       ├── example.py           # 단독 실행 예시
 │   │       └── README.md
-│   ├── frontend/                    # Next.js 웹 서비스
+│   ├── frontend/                    # Next.js 웹 서비스 (포트 3000)
 │   │   ├── app/
-│   │   │   ├── api/infer/           # FastAPI 프록시 — 단일 encode+decode
 │   │   │   ├── api/encode/          # FastAPI 프록시 — encode 전용
 │   │   │   ├── api/decode/          # FastAPI 프록시 — decode 전용
-│   │   │   ├── realtime/            # 실시간 세그멘테이션 UI (서버 추론)
+│   │   │   ├── api/infer/           # FastAPI 프록시 — encode+decode 통합
+│   │   │   ├── realtime/            # 실시간 세그멘테이션 UI
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── types.ts
+│   │   │   │   └── utils/segmentation.ts
 │   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
 │   │   └── public/samples/          # 샘플 이미지
 │   └── benchmark/                   # 추론 속도 벤치마크
@@ -212,7 +218,7 @@ OpenVINO 서버 사용법은 [`Ki-67_service/deployment/openvino/README.md`](Ki-
 
 ## 웹 서비스
 
-**접속 주소:** http://10.10.40.194:3000/realtime
+실행 방법 및 UI 사용 가이드는 [`Ki-67_service/README.md`](Ki-67_service/README.md) 참고.
 
 ### 아키텍처
 
@@ -224,7 +230,7 @@ Next.js 프록시를 통해 FastAPI 추론 서버(OpenVINO FP32)에 요청을 �
     ↓ 이미지 업로드 시: POST /api/encode (FormData)
     ↓ 클릭마다:        POST /api/decode (embedding + points)
     ↓ 단일 요청 시:    POST /api/infer  (FormData)
-Next.js /realtime 페이지 (포트 3000, systemd)  ← Next.js 프록시
+Next.js /realtime 페이지 (포트 3000, systemd)
 FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
     ↓ 이미지 해시 캐시 → encode → decode → (H, W) uint8 마스크
 브라우저 — 마스크 → 윤곽선 추출 → 캔버스 렌더링
@@ -236,21 +242,6 @@ FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
 |--------|-------:|-------------:|----:|
 | ONNX INT8 | 545 ms | 92 ms | 637 ms |
 | **OpenVINO FP32** | **75 ms** | **50 ms** | **125 ms** |
-
-### 주요 기능 (`/realtime` 페이지)
-
-- 이미지 업로드 (JPG/PNG/BMP/TIFF) 또는 드래그&드롭
-- 다각형 프롬프트 도형 (△□⬠⬡) 크기·회전·위치 조절 후 클릭으로 세포 세그멘테이션
-- 양성(Ki-67+) / 음성(Ki-67−) 라벨 지정 및 Ki-67 지수 자동 계산
-- Undo(`Z`) / Redo(`Y`) 단축키 및 버튼
-- 세포 목록 편집 (재추론, 라벨 변경, 삭제, 드래그 순서 변경)
-- 결과 JSON 저장 (세포별 폴리라인 좌표 + 추론 시간 포함)
-
-### 환경변수 (`frontend/.env.local`)
-
-```
-BACKEND_URL=http://localhost:8000   # FastAPI 추론 서버 주소
-```
 
 ---
 
