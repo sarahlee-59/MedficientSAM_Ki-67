@@ -142,62 +142,11 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) f
 
 ---
 
-## 웹 서비스 실행
+## 웹 서비스
 
-### 이미 실행 중인지 확인
+실행 방법 및 UI 사용 가이드는 [`SERVICE_GUIDE.md`](SERVICE_GUIDE.md) 참고.
 
-```bash
-ss -tlnp | grep -E '3000|8000'
-```
-
-두 포트가 모두 보이면 바로 접속 → **http://10.10.40.194:3000/realtime**
-
----
-
-### 1. 추론 서버 (포트 8000)
-
-```bash
-cd /mnt/Disk1/sylee/deployment/openvino
-
-# 최초 1회
-pip install fastapi "uvicorn[standard]" python-multipart
-pip install -r requirements.txt
-
-# 실행
-nohup uvicorn server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-echo $! > server.pid
-
-# 중지
-kill $(cat server.pid)
-```
-
-### 2. 프론트엔드 (포트 3000)
-
-```bash
-cd /mnt/Disk1/sylee/frontend
-
-# 최초 1회
-npm install && npm run build
-
-# 실행
-nohup npm start > ../frontend.log 2>&1 &
-echo $! > ../frontend.pid
-
-# 중지
-kill $(cat ../frontend.pid)
-```
-
-### 3. 접속
-
-```
-http://10.10.40.194:3000/realtime
-```
-
-> 두 서버 모두 실행 후 5~10초 뒤 접속하세요.
-
----
-
-## 웹 서비스 아키텍처
+### 아키텍처
 
 ```
 사용자 브라우저
@@ -216,25 +165,6 @@ FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
 |--------|-------:|-------------:|----:|
 | ONNX INT8 | 545 ms | 92 ms | 637 ms |
 | **OpenVINO FP32** | **75 ms** | **50 ms** | **125 ms** |
-
-### API 엔드포인트 (FastAPI, 포트 8000)
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| POST | `/encode` | 이미지 업로드 → session_id 반환 (인코더 실행) |
-| POST | `/decode` | session_id + 좌표 → 마스크 반환 (디코더만 실행) |
-| POST | `/infer` | 이미지 + 좌표 → 마스크 (encode+decode 통합 fallback) |
-
----
-
-## 기술 정보
-
-| 항목 | 내용 |
-|------|------|
-| 추론 엔진 | OpenVINO FP32 (Intel CPU) |
-| 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
-| 프론트엔드 | Next.js (포트 3000) |
-| 추론 서버 | FastAPI + OpenVINO (포트 8000) |
 
 ---
 
