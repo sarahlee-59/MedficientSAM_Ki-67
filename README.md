@@ -11,6 +11,7 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 .
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # 실험 로그 및 학습 결과 분석
+├── SERVICE_GUIDE.md                  # 웹 서비스 실행 방법 및 UI 사용 가이드
 │
 ├── src/                             # 학습 코드
 │   ├── train.py                     # Hydra 학습 진입점
