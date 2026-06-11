@@ -113,3 +113,64 @@ Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션�
 | 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
 | 프론트엔드 | Next.js (포트 3000) |
 | 추론 서버 | FastAPI (포트 8000) |
+
+---
+
+## 인프라 구성
+
+### 현재 Docker 구성
+
+```
+외부 :3000
+    │
+  [nginx]          docker-compose — 단순 리버스 프록시
+    │
+  [frontend]       docker-compose — Next.js (expose만, 외부 직접 접근 불가)
+    │
+  [FastAPI]        Docker 외부 — uvicorn 직접 실행 (포트 8000)
+```
+
+`docker-compose.yml`은 `frontend`(Next.js)와 `nginx` 두 서비스를 관리한다.  
+`frontend`는 `expose`만 선언되어 있어 Docker 네트워크 내부에서만 접근 가능하고, nginx가 외부 포트 3000을 받아 내부로 전달한다.
+
+### nginx의 역할과 필요성
+
+현재 `nginx.conf`는 HTTP 리버스 프록시 하나만 수행한다(SSL 미설정, 정적 파일 분리 없음).  
+즉, **nginx가 없어도 동일하게 동작한다.** `docker-compose.yml`에서 `expose → ports`로 바꾸면 nginx 없이 frontend를 직접 외부에 노출할 수 있다.
+
+nginx가 유효해지는 시점:
+- HTTPS 전환 시 (SSL 인증서 + `listen 443 ssl` 설정)
+- 여러 서비스를 단일 포트로 묶을 때 (경로 기반 라우팅)
+
+### Docker 없이 실행하는 방법
+
+Docker를 쓰지 않아도 된다. 아래 순서로 직접 실행 가능하다.
+
+```bash
+# 1. FastAPI 추론 서버
+cd /mnt/Disk1/sylee/Ki-67_service/deployment/openvino
+pip install fastapi "uvicorn[standard]" python-multipart openvino numpy opencv-python
+uvicorn server:app --host 0.0.0.0 --port 8000 &
+
+# 2. Next.js 프론트엔드
+cd /mnt/Disk1/sylee/Ki-67_service/frontend
+ONNX_DIR=/mnt/Disk1/sylee/Ki-67_service/deployment/onnx npm run build
+ONNX_DIR=/mnt/Disk1/sylee/Ki-67_service/deployment/onnx npm start
+```
+
+### Docker Compose로 실행하는 방법
+
+```bash
+cd /mnt/Disk1/sylee/Ki-67_service
+
+# 빌드 후 시작
+docker compose up -d --build
+
+# 로그 확인
+docker compose logs -f
+
+# 중지
+docker compose down
+```
+
+> **사전 준비**: `deployment/onnx/`에 `encoder.quantized.onnx`, `decoder.quantized.onnx` 파일이 있어야 한다.
