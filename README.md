@@ -108,14 +108,11 @@ GlaS 데이터셋은 cell 단위가 아닌 gland 단위 구성이므로 제외.
 
 ### 3단계: ONNX Export + INT8 양자화 + OpenVINO 변환
 
-```bash
-python src/export_onnx.py experiment=export_finetuned_l1_onnx output_dir=weights/finetuned-l1-augmented/onnx
-# → encoder.onnx + decoder.onnx (FP32)
-# → encoder.optimized.onnx + decoder.optimized.onnx (ORT 최적화)
-# → encoder.quantized.onnx + decoder.quantized.onnx (INT8 동적 양자화, 배포용)
-```
+`src/export_onnx.py`로 FP32 ONNX export → ORT 최적화 → INT8 동적 양자화를 순서대로 수행.  
+최종 배포 파일: `encoder.quantized.onnx` (~44MB) + `decoder.quantized.onnx` (~9MB)
 
-ONNX FP32 모델은 OpenVINO IR 포맷(`encoder.xml/.bin`, `decoder.xml/.bin`)으로도 변환하여 `deployment/openvino/`에 반영. Intel oneDNN 커널 활용으로 FP32 ONNX 대비 약 1.65× 빠른 추론 속도 확인.
+이후 ONNX FP32 모델을 OpenVINO IR 포맷(`encoder.xml/.bin`, `decoder.xml/.bin`)으로 변환하여 `deployment/openvino/`에 반영.  
+Intel oneDNN 커널 활용으로 FP32 ONNX 대비 약 1.65× 빠른 추론 속도 확인.
 
 ---
 
