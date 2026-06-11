@@ -12,16 +12,6 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # 실험 로그 및 학습 결과 분석
 │
-├── medficientsam/                    # 학습 프레임워크 (Distillation + Fine-tuning)
-│   ├── src/                         # 모델, 데이터셋, 손실함수, 학습/추론/export 코드
-│   ├── configs/                     # Hydra 실험 설정
-│   │   └── experiment/              # distill_l*, finetune_l*, export_*, infer_*
-│   ├── train_scripts/               # 학습 실행 셸 스크립트
-│   ├── infer_scripts/               # ONNX/Torch 추론 예제
-│   ├── eval_results/                # gitignore (메트릭 CSV + NPZ 결과 모두 제외)
-│   ├── notebooks/                   # FLOPs 측정 노트북
-│   └── cpp/                         # OpenVINO C++ 추론 코드
-│
 ├── Ki-67_service/                   # Ki-67 특화 파이프라인 + 웹 서비스
 │   ├── src/                         # Ki-67 실험용 학습 코드
 │   │   ├── train.py                 # Hydra 학습 진입점
@@ -266,23 +256,6 @@ FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
 ```
 BACKEND_URL=http://localhost:8000   # FastAPI 추론 서버 주소
 ```
-
----
-
-## 환경 설정 (학습)
-
-```bash
-# medficientsam 환경
-cd medficientsam
-conda env create -f environment.yaml -n medficientsam
-conda activate medficientsam
-
-# .env 설정
-cp .env.example .env
-# CVPR2024_MEDSAM_DATA_DIR=<train_npz 상위 디렉토리>
-```
-
-요구사항: CUDA 12.0+, Python 3.10, PyTorch 2.2.2, Lightning 2.x, Hydra-core 1.3
 
 ---
 
