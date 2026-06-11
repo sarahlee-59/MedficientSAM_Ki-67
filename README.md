@@ -18,7 +18,7 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   │   └── experiment/              # distill_l*, finetune_l*, export_*, infer_*
 │   ├── train_scripts/               # 학습 실행 셸 스크립트
 │   ├── infer_scripts/               # ONNX/Torch 추론 예제
-│   ├── eval_results/                # 검증 메트릭 CSV (추론 NPZ 결과는 gitignore)
+│   ├── eval_results/                # gitignore (메트릭 CSV + NPZ 결과 모두 제외)
 │   ├── notebooks/                   # FLOPs 측정 노트북
 │   └── cpp/                         # OpenVINO C++ 추론 코드
 │
@@ -49,7 +49,9 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   │       └── README.md
 │   ├── frontend/                    # Next.js 웹 서비스
 │   │   ├── app/
-│   │   │   ├── api/infer/           # FastAPI 추론 서버 프록시 엔드포인트
+│   │   │   ├── api/infer/           # FastAPI 프록시 — 단일 encode+decode
+│   │   │   ├── api/encode/          # FastAPI 프록시 — encode 전용
+│   │   │   ├── api/decode/          # FastAPI 프록시 — decode 전용
 │   │   │   ├── realtime/            # 실시간 세그멘테이션 UI (서버 추론)
 │   │   │   └── benchmark/           # 추론 속도 벤치마크 페이지
 │   │   └── public/samples/          # 샘플 이미지
@@ -193,12 +195,14 @@ pip install onnxruntime numpy opencv-python
 ### 사용 예시
 
 ```python
-from Ki-67_service.deployment.onnx.infer import Ki67Segmenter
+import sys
+sys.path.insert(0, "Ki-67_service")
+from deployment.onnx.infer import Ki67Segmenter
 import numpy as np
 
 seg = Ki67Segmenter(
-    encoder_path="deployment/encoder.quantized.onnx",
-    decoder_path="deployment/decoder.quantized.onnx",
+    encoder_path="Ki-67_service/deployment/encoder.quantized.onnx",
+    decoder_path="Ki-67_service/deployment/decoder.quantized.onnx",
 )
 
 # image: (H, W, 3) uint8 RGB
@@ -232,9 +236,10 @@ Next.js 프록시를 통해 FastAPI 추론 서버(OpenVINO FP32)에 요청을 �
 
 ```
 사용자 브라우저
-    ↓ 이미지 + 클릭 좌표 (FormData)
-Next.js /realtime 페이지 (포트 3000, systemd)
-    ↓ POST /api/infer  ← Next.js 프록시
+    ↓ 이미지 업로드 시: POST /api/encode (FormData)
+    ↓ 클릭마다:        POST /api/decode (embedding + points)
+    ↓ 단일 요청 시:    POST /api/infer  (FormData)
+Next.js /realtime 페이지 (포트 3000, systemd)  ← Next.js 프록시
 FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
     ↓ 이미지 해시 캐시 → encode → decode → (H, W) uint8 마스크
 브라우저 — 마스크 → 윤곽선 추출 → 캔버스 렌더링
