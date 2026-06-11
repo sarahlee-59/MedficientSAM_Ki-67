@@ -27,14 +27,14 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   ├── deployment/                  # 추론 배포 패키지
 │   │   ├── encoder.quantized.onnx   # INT8 인코더 ~44MB
 │   │   ├── decoder.quantized.onnx   # INT8 디코더 ~9MB
-│   │   ├── openvino/                # OpenVINO FP32 — 현재 운영 중 (e2e ~125ms)
+│   │   ├── openvino/                # OpenVINO FP32 — 현재 운영 중
 │   │   │   ├── encoder.xml / .bin   # FP32 인코더 IR ~167MB
 │   │   │   ├── decoder.xml / .bin   # FP32 디코더 IR ~19MB
 │   │   │   ├── infer.py             # Ki67Segmenter 클래스 (openvino)
 │   │   │   ├── server.py            # FastAPI 추론 서버
 │   │   │   ├── example.py           # 단독 실행 예시
 │   │   │   └── requirements.txt
-│   │   └── onnx/                    # ONNX INT8 — 참고용 (e2e ~637ms)
+│   │   └── onnx/                    # ONNX INT8 — 참고용
 │   │       ├── infer.py             # Ki67Segmenter 클래스 (onnxruntime)
 │   │       ├── server.py            # FastAPI 추론 서버
 │   │       └── example.py           # 단독 실행 예시
@@ -98,11 +98,8 @@ EfficientViT-SAM L1 공식 pretrained 가중치 기반으로 병리 핵 데이�
 
 ### 3단계: ONNX Export + INT8 양자화 + OpenVINO 변환
 
-`src/export_onnx.py` → FP32 ONNX → ORT 최적화 → INT8 동적 양자화.  
-최종 파일: `encoder.quantized.onnx` (~44MB) + `decoder.quantized.onnx` (~9MB)
-
-ONNX FP32 모델을 OpenVINO IR(`encoder.xml/.bin`, `decoder.xml/.bin`)로 변환하여 `deployment/openvino/`에 반영.  
-Intel oneDNN 활용으로 ONNX FP32 대비 약 1.65× 속도 향상 확인.
+`src/export_onnx.py` → FP32 ONNX → ORT 최적화 → INT8 동적 양자화 → OpenVINO IR 변환.  
+Export 설정 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
 
 ---
 
