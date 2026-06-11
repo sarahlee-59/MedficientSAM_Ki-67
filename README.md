@@ -101,14 +101,6 @@ EfficientViT-L1 image encoder를 SAM ViT-B encoder의 출력(image embeddings)�
 실험 완료(400K steps, loss ▼50.9%)했으나 공식 pretrained 기반 fine-tuning 대비 성능이 낮아 최종 배포에서 제외됨.  
 실험 상세는 `EXPERIMENT_LOG.md` 참고.
 
-```bash
-cd medficientsam
-bash train_scripts/distill_l1.sh
-# → configs/experiment/distill_l1_no_extracted.yaml
-# → 데이터: train_npz/ (CVPR 2024 MedSAM, 12개 모달리티, 최대 400k 샘플)
-# → 8 epochs, AdamW, MLflow 로깅
-```
-
 ### 2단계: Fine-tuning (Ki-67 핵 데이터) — 배포 채택
 
 > Fine-tuning 설계 및 실행은 별도로 진행됐습니다.
@@ -124,14 +116,7 @@ GlaS 데이터셋은 cell 단위가 아닌 gland 단위 구성이므로 제외.
 
 증강 파이프라인: HorizontalFlip, VerticalFlip, RandomRotate90, **HEDJitter** (IHC 염색 변이), GaussianBlur/MotionBlur/Defocus (Scanner 품질), ImageCompression, RandomBrightnessContrast
 
-```bash
-cd Ki-67_service
-python src/train.py experiment=finetune_l1
-# → 데이터: train_npz/Pathology_new/
-# → 16 epochs, gradient clip 0.5, bbox 동적 생성
-```
-
-### 3단계: ONNX Export + INT8 양자화
+### 3단계: ONNX Export + INT8 양자화 + OpenVINO 변환
 
 ```bash
 python src/export_onnx.py experiment=export_finetuned_l1_onnx output_dir=weights/finetuned-l1-augmented/onnx
@@ -139,6 +124,8 @@ python src/export_onnx.py experiment=export_finetuned_l1_onnx output_dir=weights
 # → encoder.optimized.onnx + decoder.optimized.onnx (ORT 최적화)
 # → encoder.quantized.onnx + decoder.quantized.onnx (INT8 동적 양자화, 배포용)
 ```
+
+ONNX FP32 모델은 OpenVINO IR 포맷(`encoder.xml/.bin`, `decoder.xml/.bin`)으로도 변환하여 `deployment/openvino/`에 반영. Intel oneDNN 커널 활용으로 FP32 ONNX 대비 약 1.65× 빠른 추론 속도 확인.
 
 ---
 
