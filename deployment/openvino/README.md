@@ -2,8 +2,8 @@
 
 Ki67 nucleus instance segmentation, point-prompt only. Distilled from MedSAM
 (efficientvit-l1 image encoder + MedSAM vit_b prompt/mask decoder), fine-tuned
-on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg, 818 Ki67 tiles held
-out), decoder-only training, then exported to ONNX and converted to OpenVINO
+on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg via challenge Google
+Sheet, 818 Ki67 tiles held out), decoder-only training, then exported to ONNX and converted to OpenVINO
 FP32 IR.
 
 This package is the **latency-oriented** deployment. For the smaller (~53 MB)
