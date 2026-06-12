@@ -46,10 +46,13 @@ sudo systemctl restart ki67-frontend
 journalctl -u ki67-frontend -f
 ```
 
-> 부팅 시 자동 시작됩니다 (`enabled`). 코드 변경 후에는 재빌드 필요:
+> 부팅 시 자동 시작됩니다 (`enabled`).
+>
+> **코드 변경 배포:** `main` 브랜치에 push하면 GitHub Actions가 자동으로 빌드 및 재시작합니다.
+>
+> 수동 배포가 필요한 경우:
 > ```bash
-> cd /mnt/Disk1/sylee/frontend && npm run build
-> sudo systemctl restart ki67-frontend
+> /mnt/Disk1/sylee/deploy.sh
 > ```
 
 ### 3. 접속
