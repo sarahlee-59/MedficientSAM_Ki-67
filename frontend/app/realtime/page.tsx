@@ -1057,6 +1057,10 @@ export default function RealtimePage() {
       );
       setLatencies((prev) => [...prev.slice(-49), { ms: inferenceMs, cellId: id }]);
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        setCells((prev) => prev.filter((c) => c.id !== id));
+        return;
+      }
       setError(err instanceof Error ? err.message : String(err));
       setCells((prev) => prev.filter((c) => c.id !== id));
     }
@@ -1209,7 +1213,9 @@ export default function RealtimePage() {
       clearReinferEditState();
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!(err instanceof Error && err.name === "AbortError")) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
       setCells((prev) =>
         prev.map((c) => (c.id === cellId ? { ...c, pending: false } : c))
       );
