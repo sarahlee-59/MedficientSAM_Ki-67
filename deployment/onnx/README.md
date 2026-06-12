@@ -2,8 +2,8 @@
 
 Ki67 nucleus instance segmentation, point-prompt only. Distilled from MedSAM
 (efficientvit-l1 image encoder + MedSAM vit_b prompt/mask decoder), fine-tuned
-on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg via challenge Google
-Sheet, 818 Ki67 tiles held out), decoder-only training, then exported to ONNX and INT8 dynamic-quantized.
+on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg, 818 Ki67 tiles held
+out; PanNuke and MoNuSeg added for pathology domain supplementation), decoder-only training, then exported to ONNX and INT8 dynamic-quantized.
 
 ## Files (copy all into a single directory)
 
@@ -42,7 +42,7 @@ No PyTorch, no torchvision, no training-codebase dependencies.
 `server.py`는 FastAPI 기반 추론 서버입니다. Next.js 프론트엔드와 연동하거나 HTTP로 직접 호출할 때 사용합니다.
 
 ```bash
-cd deployment
+cd deployment/onnx
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 

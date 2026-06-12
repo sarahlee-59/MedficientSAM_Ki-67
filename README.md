@@ -28,8 +28,6 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   └── utils/                       # 로깅, 전처리 유틸
 ├── configs/                         # Hydra 설정
 ├── deployment/                      # 추론 배포 패키지
-│   ├── encoder.quantized.onnx       # INT8 인코더 ~44MB
-│   ├── decoder.quantized.onnx       # INT8 디코더 ~9MB
 │   ├── openvino/                    # OpenVINO FP32 — 현재 운영 중
 │   │   ├── encoder.xml / .bin       # FP32 인코더 IR ~167MB
 │   │   ├── decoder.xml / .bin       # FP32 디코더 IR ~19MB
@@ -38,6 +36,8 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   │   ├── example.py               # 단독 실행 예시
 │   │   └── requirements.txt
 │   └── onnx/                        # ONNX INT8 — 참고용
+│       ├── encoder.quantized.onnx   # INT8 인코더 ~44MB
+│       ├── decoder.quantized.onnx   # INT8 디코더 ~9MB
 │       ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime)
 │       ├── server.py                # FastAPI 추론 서버
 │       └── example.py               # 단독 실행 예시
@@ -114,7 +114,7 @@ Export 설정 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
 ### CVPR 2024 MedSAM Laptop Challenge 데이터 (`train_npz/`)
 
 대부분의 데이터는 [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs)에서 다운로드.  
-**CT·Dermoscopy·PanNuke·MoNuSeg는 공식 Drive에 미포함** — 챌린지 페이지([Codabench](https://www.codabench.org/competitions/1847/))의 추가 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보. 상세 내용은 [`DATASET.md`](DATASET.md) 참고.
+**CT·Dermoscopy는 공식 Drive에 미포함** — 챌린지 페이지([Codabench](https://www.codabench.org/competitions/1847/))의 추가 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보. **PanNuke·MoNuSeg 2018은 병리 도메인 보강 목적으로 별도 추가.** 상세 내용은 [`DATASET.md`](DATASET.md) 참고.
 
 ```
 train_npz/
@@ -128,8 +128,8 @@ train_npz/
 ├── OCT/         (Intraretinal-Cystoid-Fluid)
 ├── Pathology_new/
 │   ├── gts_npz_s128/            # Ki-67 IHC 슬라이드 타일 (stride 128)
-│   ├── Cancer(PanNuke)_gts_npz/ # PanNuke 핵 데이터셋 ← 스프레드시트 경유
-│   └── MoNuSeg2018_gts_npz/     # MoNuSeg 2018 ← 스프레드시트 경유
+│   ├── Cancer(PanNuke)_gts_npz/ # PanNuke 핵 데이터셋 ← 병리 보강 추가
+│   └── MoNuSeg2018_gts_npz/     # MoNuSeg 2018 ← 병리 보강 추가
 ├── PET/         (autoPET)
 ├── US/          (Breast-Ultrasound, hc18)
 └── XRay/        (ChestXray, COVID-19-Radiography, COVID-QU-Ex, Pneumothorax)

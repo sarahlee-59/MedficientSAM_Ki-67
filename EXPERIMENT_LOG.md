@@ -10,15 +10,15 @@ distillation 기반 fine-tuning은 성능 불량으로 채택되지 않았으며
 ```
 [1] Fine-tuning  (Ki-67 도메인 특화)
     기반:   EfficientViT-SAM L1 공식 pretrained (GitHub 공식 배포)
-    데이터:  Ki-67 IHC + PanNuke + MoNuSeg (augmented)  ※ PanNuke·MoNuSeg: 챌린지 Google Sheet 경유
+    데이터:  Ki-67 IHC + PanNuke + MoNuSeg (augmented)  ※ PanNuke·MoNuSeg: 병리 도메인 보강 목적 추가
     출력:   weights/finetuned-l1-augmented/best.ckpt
 
         ↓
 
 [2] Export
     설정:   configs/experiment/export_finetuned_l1_onnx.yaml
-    출력:   deployment/encoder.quantized.onnx (INT8)
-             deployment/decoder.quantized.onnx (INT8)
+    출력:   deployment/onnx/encoder.quantized.onnx (INT8)
+             deployment/onnx/decoder.quantized.onnx (INT8)
              deployment/openvino/{encoder,decoder}.{xml,bin} (FP32)
 
         ↓
