@@ -32,136 +32,106 @@ distillation 기반 fine-tuning은 성능 불량으로 채택되지 않았으며
 
 ## 전체 실험 이력
 
-| 날짜 | Run 이름 | 상태 | 원인 |
+| 날짜 | Run 이름 | 상태 | 비고 |
 |---|---|---|---|
 | 2026-04-28 | distill_l1_no_extracted | FAILED (즉시) | albumentations 버전 비호환 |
-| 2026-04-29 ~ 05-01 | distill_l1_no_extracted | **FINISHED** | — (소규모 데이터 첫 성공) |
-| 2026-05-08 ~ 05-11 | distill_l1_no_extracted | **FINISHED** | — (CVPR2024 full 학습) |
+| 2026-04-29 ~ 05-01 | distill_l1_no_extracted | **FINISHED** | 소규모 데이터 첫 성공 |
+| 2026-05-08 ~ 05-11 | distill_l1_no_extracted | **FINISHED** | CVPR2024 full 학습 |
 | 2026-05-12 ~ 05-13 | distill_l1_no_extracted | KILLED | 외부 강제 종료 |
 | 2026-05-13 (13:55) | distill_l1_no_extracted | FAILED (3h) | Pathology_new 누락 파일 |
 | 2026-05-13 (17:27) | distill_l1_train_npz_all | KILLED | 외부 강제 종료 (5h 36m) |
-| 2026-05-14 ~ 05-17 | distill_l1_npz_clean | **FINISHED** | — (최종 성공, 배포 미채택) |
-| 2026-06-12 ~ | distill_l1_bs16_ep8_20260612 | **IN PROGRESS** | — (Pathology_new 포함 재학습) |
+| 2026-05-14 ~ 05-17 | distill_l1_npz_clean | **FINISHED** | 최종 완주, 배포 미채택 |
+| 2026-06-12 ~ | distill_l1_bs16_ep8_20260612 | **IN PROGRESS** | Pathology_new 포함 재학습 |
 
 ---
 
 ## 실험 상세 (날짜순)
 
----
-
-### 2026-04-28 — 환경 오류로 즉시 실패
-
-**Run**: `distill_l1_no_extracted` | **상태**: FAILED (즉시)
-
-**증상**: 학습 시작 직후 즉시 크래시
-
-```
-AttributeError: module 'albumentations' has no attribute 'TransformType'.
-Did you mean: 'Transform3D'?
-```
-
-`medsam_dataset.py`에서 `A.TransformType` 타입 힌트를 사용하는데, 설치된 버전에 해당 속성이 없었음.
-
-**해결**: albumentations 버전 업그레이드 (`environment.yaml` 기준으로 환경 재현).
+> 각 항목은 **데이터 → 설정 → 체크포인트 → 결과** 순으로 기술.
 
 ---
 
-### 2026-04-29 ~ 05-01 — 소규모 데이터 첫 성공
+### 2026-04-28 | `distill_l1_no_extracted` | FAILED
 
-**Run**: `distill_l1_no_extracted` | **상태**: FINISHED
-
-- 데이터: `train_npz/` 부분 다운로드 상태 (유효 2D 슬라이스 약 127,936개)
-- batch_size: 8 / num_workers: 16
-- 체크포인트: `experiment_weights/distilled-l1-prev-run/` (step_010000 ~ step_120000, last.ckpt, 13개, 10.9GB)
-
-**결과**: 8 epoch 완주, 최종 loss **0.00133**  
-데이터 다양성 부족 → CVPR2024 전체 데이터로 재학습 필요.
+| 항목 | 내용 |
+|---|---|
+| 데이터 | — (학습 시작 전 즉시 크래시) |
+| 시작점 | scratch |
+| batch_size / num_workers | — |
+| Epochs / 총 steps | — |
+| Optimizer / Scheduler | — |
+| 체크포인트 | — |
+| 로그 | — |
+| **결과** | `AttributeError: module 'albumentations' has no attribute 'TransformType'` — albumentations 버전 비호환으로 즉시 실패. `environment.yaml` 기준 환경 재현으로 해결. |
 
 ---
 
-### 2026-05-08 ~ 05-11 — CVPR2024 전체 데이터 학습
+### 2026-04-29 ~ 05-01 | `distill_l1_no_extracted` | FINISHED
 
-**Run**: `distill_l1_no_extracted` | **상태**: FINISHED
+| 항목 | 내용 |
+|---|---|
+| 데이터 | `train_npz/` 부분 다운로드 (Pathology_new **미포함**), 유효 슬라이스 약 **127,936개** |
+| 시작점 | scratch |
+| batch_size / num_workers | 8 / 16 |
+| Epochs / 총 steps | 8 ep / 400,000 steps (50,000 steps/epoch) |
+| Optimizer / Scheduler | AdamW (lr=0.075, wd=0.0005) / ExponentialLR (gamma=0.5) |
+| 체크포인트 | `experiment_weights/distilled-l1-prev-run/` — step_010000 ~ step_120000 + last.ckpt (13개, 10.9GB) |
+| 로그 | — |
+| **결과** | 8 epoch 완주, 최종 loss **0.00133**. 데이터 다양성 부족 → CVPR2024 전체 데이터로 재학습 필요. |
 
-- 데이터: CVPR2024 MedSAM 공식 `train_npz/` 전량 (70,864 npz, 유효 슬라이스 ~1,050,000개), `limit_sample=400,000`
-- batch_size: 16 (epoch당 25,000 steps)
-- 체크포인트: `logs/train/runs/2026-05-08_09-42-08/checkpoints/`
+---
 
-**결과**: 8 epoch / 200,000 steps 완주, 최종 loss **0.00113**  
-평가: **DSC 0.8588 / NSD 0.8918** (`eval_results/last_ckpt_metrics.csv`, 3,077 cases)
+### 2026-05-08 ~ 05-11 | `distill_l1_no_extracted` | FINISHED
 
-> CVPR2024 MedSAM validation set 기준. Ki-67 병리 이미지 성능과는 무관.
-
-**한계**: batch_size=16은 이후 resume 시 불안정성 유발.
+| 항목 | 내용 |
+|---|---|
+| 데이터 | `train_npz/` CVPR2024 공식 전량 (Pathology_new **미포함**), 70,864 npz, 유효 슬라이스 ~**1,050,000개**, limit_sample=400,000 |
+| 시작점 | scratch |
+| batch_size / num_workers | 16 / — |
+| Epochs / 총 steps | 8 ep / 200,000 steps (25,000 steps/epoch) |
+| Optimizer / Scheduler | AdamW (lr=0.075, wd=0.0005) / ExponentialLR (gamma=0.5) |
+| 체크포인트 | `logs/train/runs/2026-05-08_09-42-08/checkpoints/` |
+| 로그 | — |
+| **결과** | 8 epoch 완주, 최종 loss **0.00113**. DSC **0.8588** / NSD **0.8918** (CVPR2024 validation 3,077 cases). batch_size=16은 이후 resume 시 불안정성 유발. |
 
 ---
 
 ### 2026-05-12 ~ 05-13 — 연속 3회 시도, 모두 실패
 
-같은 기간 동안 3번의 run이 연속으로 시도됐으며 모두 완주에 실패했다.
-
-#### 3개 Run 비교
-
 | 항목 | ① 05-12~13 KILLED | ② 05-13 13:55 FAILED | ③ 05-13 17:27 KILLED |
 |---|---|---|---|
 | Run 이름 | distill_l1_no_extracted | distill_l1_no_extracted | distill_l1_train_npz_all |
-| 시작점 | distilled-l1-mlflow last.ckpt (resume) | distilled-l1-mlflow last.ckpt (resume) | scratch |
-| Pathology_new | 포함 | 포함 | 포함 |
+| 데이터 | Pathology_new **포함** | Pathology_new **포함** | Pathology_new **포함** |
+| 시작점 | `distilled-l1-mlflow/last.ckpt` resume | `distilled-l1-mlflow/last.ckpt` resume | scratch |
 | batch_size | 16 | 16 | — |
-| 종료 시점 | 외부 KILL | Epoch 2, step ~8,745 (약 3h) | Epoch 0, 63% 진행 중 (5h 36m) |
-| 종료 원인 | 외부 강제 종료 | Pathology_new 누락 파일 | 외부 강제 종료 |
+| 종료 시점 | 외부 KILL | Epoch 2, step ~8,745 (약 3h) | Epoch 0, 63% (5h 36m) |
 | 체크포인트 | `experiment_weights/distilled-l1-mlflow/` (5.0GB, step_050000) | — | `experiment_weights/distilled-l1-train_npz/` (3.3GB, step_030000) |
+| **종료 원인** | 외부 강제 종료 | `Pathology_new/gts_npz_s128/` 누락 파일 (불완전 다운로드) | 외부 강제 종료 |
 
-#### ① 2026-05-12~13 — KILLED
-
-- `experiment_weights/distilled-l1-mlflow/last.ckpt` 기점으로 resume, step_050000까지 진행 후 외부 KILL.
-- 이 `last.ckpt`를 ②의 resume 기점으로 재사용했으나 Pathology_new 문제와 겹쳐 실패.
-
-#### ② 2026-05-13 13:55 — Pathology_new 누락 파일 (핵심 실패)
-
-**증상**: Epoch 2, step ~8,745 (약 2시간 47분) 시점 크래시
-
-```
-FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
-2D_S26-03104,..._r06_c07.npz
-```
-
-- `Pathology_new/gts_npz_s128/` 하위 다수 파일이 디스크에 없음 (불완전한 다운로드)
-- seed=42 샘플링 결과 Epoch 2에서 처음 누락 파일 접근 → Epoch 0~1은 우연히 정상 파일만 사용
-
-**해결 방향**: `Pathology_new` 제외 정제 데이터로 scratch 재학습.
-
-#### ③ 2026-05-13 17:27 — KILLED
-
-- Pathology_new 포함 상태에서 재시도, Epoch 0, 63% 진행 중 외부 KILL.
-- 학습 자체 문제는 없었음. 다른 프로세스와 충돌 또는 수동 중단으로 추정.
+**핵심 실패 원인 (②)**: seed=42 샘플링 결과 Epoch 0~1은 우연히 정상 파일만 접근했고, Epoch 2에서 처음 누락 파일에 도달해 `FileNotFoundError` 발생.  
+**해결 방향**: Pathology_new 제외 정제 데이터로 scratch 재학습.
 
 ---
 
-### 2026-05-14 ~ 05-17 — Distillation 최종 완주 (배포 미채택)
+### 2026-05-14 ~ 05-17 | `distill_l1_npz_clean_20260514` | FINISHED
 
-**Run**: `distill_l1_npz_clean_20260514` | **상태**: FINISHED
-
-#### 학습 설정
-
-| 항목 | 값 |
+| 항목 | 내용 |
 |---|---|
-| Teacher | MedSAM (SAM ViT-B), `medsam_vit_b.pth` — 학습 중 동결 |
-| Student | EfficientViT-SAM L1 (`pretrained=False`) |
-| 학습 파라미터 | 43,585,568개 (전체 133,256,480개 중 student만) |
-| 데이터 소스 | `train_npz/` (Pathology_new **제외**), limit_sample=400,000 |
-| Teacher 입력 해상도 | 1024×1024 / Student 입력 해상도 512×512 |
-| Batch size | **8** / Num workers 8 |
-| Epochs | 8 (50,000 steps/epoch, 총 400,000 steps) |
-| Optimizer | AdamW (lr=0.075, weight_decay=0.0005) |
-| LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
-| Precision | bf16-mixed / Gradient clip 0.5 |
-| 체크포인트 | `experiment_weights/distilled-l1-clean-20260514/` (10,000 step마다, 34GB) |
+| 데이터 | `train_npz/` (Pathology_new **제외**), limit_sample=400,000 |
+| 시작점 | scratch (`ckpt_path=None`) |
+| batch_size / num_workers | **8** / 8 |
+| Epochs / 총 steps | 8 ep / 400,000 steps (50,000 steps/epoch) |
+| Optimizer / Scheduler | AdamW (lr=0.075, wd=0.0005) / ExponentialLR (gamma=0.5) |
+| Precision / Gradient clip | bf16-mixed / 0.5 |
+| Teacher | `weights/medsam/medsam_vit_b.pth` (SAM ViT-B, 동결) — 입력 1024×1024 |
+| Student | EfficientViT-SAM L1 (`pretrained=False`) — 입력 512×512, 학습 파라미터 43.6M |
+| 체크포인트 | `experiment_weights/distilled-l1-clean-20260514/` — 10,000 step마다, 40개 (34GB) |
 | 로그 | `medficientsam/logs/distill_l1_nohup_20260514.log` |
+| **결과** | 총 **63.84h** (약 2.7일) 완주, 최종 loss **0.00111** (▼50.9%). 성능 불량으로 배포 미채택. |
 
-#### Epoch별 결과
+**Epoch별 loss**
 
-| Epoch | Train Loss | LR | 소요시간 | 누적 |
+| Epoch | Train Loss | LR | 소요 | 누적 |
 |---|---|---|---|---|
 | 0 | 0.002261 | 0.075000 | 8.09h | 8.09h |
 | 1 | 0.001504 | 0.037500 | 8.15h | 16.24h |
@@ -172,41 +142,33 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 | 6 | 0.001123 | 0.001172 | 7.85h | 55.99h |
 | 7 | 0.001110 | 0.000586 | 7.85h | 63.84h |
 
-- 총 학습 시간: **63.84h** (약 2.7일)
-- 최종 loss: **0.00111** (초기 대비 ▼50.9%)
-
 ---
 
-### 2026-06-12 ~ — Pathology_new 포함 재학습 (진행 중)
+### 2026-06-12 ~ | `distill_l1_bs16_ep8_20260612` | IN PROGRESS
 
-**Run**: `distill_l1_bs16_ep8_20260612` | **상태**: IN PROGRESS
+| 항목 | 내용 |
+|---|---|
+| 데이터 | `train_npz/` (Pathology_new **포함**, 19,062개 무결성 검증 완료), limit_sample=400,000 |
+| 시작점 | scratch (`ckpt_path=None`) |
+| batch_size / num_workers | **16** / 16 |
+| Epochs / 총 steps | 8 ep / 200,000 steps (25,000 steps/epoch) |
+| Optimizer / Scheduler | AdamW (lr=0.075, wd=0.0005) / ExponentialLR (gamma=0.5) |
+| Precision / Gradient clip | bf16-mixed / 0.5 |
+| Teacher | `weights/medsam/medsam_vit_b.pth` (SAM ViT-B, 동결) |
+| Student | EfficientViT-SAM L1 (`pretrained=False`) |
+| 체크포인트 | `experiment_weights/distilled-l1-20260612/` — 10,000 step마다 |
+| 로그 | `DP_MedificientSAM/logs/distill_l1_20260612.log` |
+| MLflow | http://localhost:5001, run: `distill_l1_bs16_ep8_20260612` |
+| **결과** | 진행 중 |
 
-#### 05-14 run과의 비교
+**05-14 run 대비 주요 변경**
 
-| 항목 | distill_l1_npz_clean (05-14) | distill_l1_bs16_ep8 (06-12) |
+| 항목 | 05-14 run | 06-12 run |
 |---|---|---|
-| Pathology_new | **제외** | **포함** (19,062개 무결성 검증 완료) |
-| 시작점 | scratch | scratch |
+| Pathology_new | 제외 | **포함** (무결성 검증 완료) |
 | batch_size | 8 | **16** |
 | steps/epoch | 50,000 | **25,000** |
 | 총 steps | 400,000 | **200,000** |
-| num_workers | 8 | 16 |
-
-#### 학습 설정
-
-| 항목 | 값 |
-|---|---|
-| Teacher | MedSAM (SAM ViT-B), `medsam_vit_b.pth` — 동결 |
-| Student | EfficientViT-SAM L1 (`pretrained=False`) |
-| 데이터 소스 | `train_npz/` **Pathology_new 포함** (무결성 검증 완료, 19,062개), limit_sample=400,000 |
-| Batch size | **16** / Num workers 16 |
-| Epochs | 8 (25,000 steps/epoch, 총 200,000 steps) |
-| Optimizer | AdamW (lr=0.075, weight_decay=0.0005) |
-| LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
-| Precision | bf16-mixed / Gradient clip 0.5 |
-| 체크포인트 | `experiment_weights/distilled-l1-20260612/` (10,000 step마다) |
-| 로그 | `DP_MedificientSAM/logs/distill_l1_20260612.log` |
-| MLflow | http://localhost:5001, run: `distill_l1_bs16_ep8_20260612` |
 
 ---
 
