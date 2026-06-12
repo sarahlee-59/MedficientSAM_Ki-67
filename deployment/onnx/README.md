@@ -3,7 +3,7 @@
 Ki67 nucleus instance segmentation, point-prompt only. Distilled from MedSAM
 (efficientvit-l1 image encoder + MedSAM vit_b prompt/mask decoder), fine-tuned
 on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg, 818 Ki67 tiles held
-out; PanNuke and MoNuSeg added for pathology domain supplementation), decoder-only training, then exported to ONNX and INT8 dynamic-quantized.
+out; PanNuke and MoNuSeg added for pathology domain supplementation via challenge Google Sheet), decoder-only training, then exported to ONNX and INT8 dynamic-quantized.
 
 ## Files (copy all into a single directory)
 

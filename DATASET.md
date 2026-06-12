@@ -19,13 +19,13 @@
 
 ### 다운로드 출처
 
-논문(MedficientSAM) 기준 11개 모달리티를 구성했으나, **공식 Google Drive에 CT·Dermoscopy가 누락**되어 챌린지 공식 홈페이지([Codabench](https://www.codabench.org/competitions/1847/)) 추가 Google Sheet에서 별도 확보했습니다. **PanNuke·MoNuSeg 2018은 병리 도메인 보강 목적으로 별도 추가한 공개 데이터셋입니다.**
+논문(MedficientSAM) 기준 11개 모달리티를 구성했으나, **공식 Google Drive에 CT·Dermoscopy가 누락**되어 챌린지 공식 홈페이지([Codabench](https://www.codabench.org/competitions/1847/)) 추가 Google Sheet에서 별도 확보했습니다. **PanNuke·MoNuSeg 2018은 병리 도메인 보강 목적으로 Google Sheet를 경유하여 별도 추가한 공개 데이터셋입니다.**
 
 | 경로 | 포함 데이터 | 비고 |
 |------|------------|------|
 | [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs) | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지 주최 측이 NPZ로 변환하여 배포 |
 | [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | CT 전체, Dermoscopy (ISIC-2017) | 원본 데이터 링크 제공 — CT는 NPZ로 다운로드, Dermoscopy는 원본 이미지를 내부 전처리하여 NPZ 생성 |
-| 별도 공개 데이터셋 | PanNuke, MoNuSeg 2018 | 병리 도메인 보강 목적 추가 — 각 원본에서 내부 전처리하여 NPZ 생성 |
+| [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | PanNuke, MoNuSeg 2018 | 병리 도메인 보강 목적 추가 — 원본 링크 경유, 내부 전처리하여 NPZ 생성 |
 
 ### 구성
 
@@ -47,8 +47,8 @@
 | MR | AMOS MR, BraTS, CervicalCancer 등 13종 | 4,881 | |
 | OCT | Intraretinal-Cystoid-Fluid | 1,436 | |
 | Pathology | Ki-67 (gts_npz_s128) | 16,376 | |
-| Pathology | PanNuke | 2,538 | 병리 보강 추가 |
-| Pathology | MoNuSeg2018 | 148 | 병리 보강 추가 |
+| Pathology | PanNuke | 2,538 | 병리 보강 추가 (스프레드시트 경유) |
+| Pathology | MoNuSeg2018 | 148 | 병리 보강 추가 (스프레드시트 경유) |
 | PET | autoPET | 345 | |
 | US | Breast-Ultrasound, hc18 | 1,646 | |
 | XRay | Chest X-ray, COVID 관련 4종 | 22,178 | |
@@ -100,8 +100,8 @@ data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...
 
 | 데이터셋 | 설명 | 패치 수 | 전처리 |
 |----------|------|---------|--------|
-| PanNuke | Pan-Cancer 세포 핵 segmentation | 2,538 | 공개 원본 → tiling 없이 256×256 resize → NPZ |
-| MoNuSeg 2018 | H&E 조직 multi-organ 세포 segmentation | 148 | 공개 원본 → 1000×1000 → 2×2 crop → 256×256 resize → NPZ |
+| PanNuke | Pan-Cancer 세포 핵 segmentation | 2,538 | Google Sheet 경유 → tiling 없이 256×256 resize → NPZ |
+| MoNuSeg 2018 | H&E 조직 multi-organ 세포 segmentation | 148 | Google Sheet 경유 → 1000×1000 → 2×2 crop → 256×256 resize → NPZ |
 
 ### Fine-tuning 데이터 구성
 
@@ -139,8 +139,8 @@ data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...
 | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지 주최 측 | 이미 NPZ 형태로 배포 | [MedSAM/LiteMedSAM 공식 레포](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM) (`pre_grey_rgb.py`) |
 | CT (AbdomenCT-1K, AMOS22, COVID-19-20, KiTS23, TotalSegmentator) | 챌린지 주최 측 (Google Sheet 경유) | 이미 NPZ 형태로 제공 | 위 MedSAM 레포 (`pre_CT_MR.py`) |
 | Dermoscopy — ISIC-2017 | 내부 전처리 | stride 128, crop 256×256 sliding window tiling → NPZ | 별도 스크립트 (이 레포 미포함) |
-| PanNuke | 내부 전처리 (병리 보강, 공개 원본) | 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
-| MoNuSeg 2018 | 내부 전처리 (병리 보강, 공개 원본) | 1000×1000 → 2×2 crop → 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
+| PanNuke | 내부 전처리 (병리 보강, Google Sheet 경유) | 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
+| MoNuSeg 2018 | 내부 전처리 (병리 보강, Google Sheet 경유) | 1000×1000 → 2×2 crop → 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
 | Ki-67 IHC 슬라이드 | 자체 병리 전처리 파이프라인 | 256×256 패치, stride 128 | `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` (별도 프로젝트) |
 
 ### 주최 측 전처리 상세
