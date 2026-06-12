@@ -5,7 +5,7 @@
 | 역할 | 데이터셋 | 용도 |
 |------|---------|------|
 | Distillation 학습 | MedSAM 2024 Challenge 공개 데이터 | Student 인코더가 Teacher(MedSAM) 임베딩을 모방하도록 학습 |
-| Fine-tuning / 평가 | Ki-67 병리 슬라이드 (내부) + MoNuSeg / PanNuke (공개) | Ki-67 H&E 이미지에서 세포 instance segmentation |
+| Fine-tuning / 평가 | Ki-67 pathology 슬라이드 (내부) + MoNuSeg / PanNuke (공개) | Ki-67 H&E 이미지에서 세포 instance segmentation |
 
 ---
 
@@ -19,13 +19,13 @@
 
 ### 다운로드 출처
 
-논문(MedficientSAM) 기준 11개 모달리티를 구성했으나, **공식 Google Drive에 CT·Dermoscopy가 누락**되어 챌린지 공식 홈페이지([Codabench](https://www.codabench.org/competitions/1847/)) 추가 Google Sheet에서 별도 확보했습니다. **PanNuke·MoNuSeg 2018은 병리 도메인 보강 목적으로 Google Sheet를 경유하여 별도 추가한 공개 데이터셋입니다.**
+논문(MedficientSAM) 기준 11개 모달리티를 구성했으나, **공식 Google Drive에 CT·Dermoscopy가 누락**되어 챌린지 공식 홈페이지([Codabench](https://www.codabench.org/competitions/1847/)) 추가 Google Sheet에서 별도 확보했습니다. **PanNuke·MoNuSeg 2018은 pathology domain 보강 목적으로 Google Sheet를 경유하여 별도 추가한 공개 데이터셋입니다.**
 
 | 경로 | 포함 데이터 | 비고 |
 |------|------------|------|
 | [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs) | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지 주최 측이 NPZ로 변환하여 배포 |
 | [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | CT 전체, Dermoscopy (ISIC-2017) | 원본 데이터 링크 제공 — CT는 NPZ로 다운로드, Dermoscopy는 원본 이미지를 내부 전처리하여 NPZ 생성 |
-| [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | PanNuke, MoNuSeg 2018 | 병리 도메인 보강 목적 추가 — 원본 링크 경유, 내부 전처리하여 NPZ 생성 |
+| [공식 홈페이지 추가 Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934) | PanNuke, MoNuSeg 2018 | pathology domain 보강 목적 추가 — 원본 링크 경유, 내부 전처리하여 NPZ 생성 |
 
 ### 구성
 
@@ -47,8 +47,8 @@
 | MR | AMOS MR, BraTS, CervicalCancer 등 13종 | 4,881 | |
 | OCT | Intraretinal-Cystoid-Fluid | 1,436 | |
 | Pathology | Ki-67 (gts_npz_s128) | 16,376 | |
-| Pathology | PanNuke | 2,538 | 스프레드시트 경유, 병리 보강 추가 |
-| Pathology | MoNuSeg2018 | 148 | 스프레드시트 경유, 병리 보강 추가 |
+| Pathology | PanNuke | 2,538 | 스프레드시트 경유, 보강 추가 |
+| Pathology | MoNuSeg2018 | 148 | 스프레드시트 경유, 보강 추가 |
 | PET | autoPET | 345 | |
 | US | Breast-Ultrasound, hc18 | 1,646 | |
 | XRay | Chest X-ray, COVID 관련 4종 | 22,178 | |
@@ -69,7 +69,7 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 
 ---
 
-## 2. Ki-67 병리 데이터셋 및 Fine-tuning
+## 2. Ki-67 Pathology 데이터셋 및 Fine-tuning
 
 ### 경로
 
@@ -96,7 +96,7 @@ data["imgs"]  # (256, 256, 3) uint8  — IHC 패치 RGB
 data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...=각 세포)
 ```
 
-### 공개 병리 보조 데이터
+### 공개 Pathology 보조 데이터
 
 | 데이터셋 | 설명 | 패치 수 | 전처리 |
 |----------|------|---------|--------|
@@ -139,9 +139,9 @@ data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...
 | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지 주최 측 | 이미 NPZ 형태로 배포 | [MedSAM/LiteMedSAM 공식 레포](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM) (`pre_grey_rgb.py`) |
 | CT (AbdomenCT-1K, AMOS22, COVID-19-20, KiTS23, TotalSegmentator) | 챌린지 주최 측 (Google Sheet 경유) | 이미 NPZ 형태로 제공 | 위 MedSAM 레포 (`pre_CT_MR.py`) |
 | Dermoscopy — ISIC-2017 | 내부 전처리 | stride 128, crop 256×256 sliding window tiling → NPZ | 별도 스크립트 (이 레포 미포함) |
-| PanNuke | 내부 전처리 (병리 보강, Google Sheet 경유) | 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
-| MoNuSeg 2018 | 내부 전처리 (병리 보강, Google Sheet 경유) | 1000×1000 → 2×2 crop → 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
-| Ki-67 IHC 슬라이드 | 자체 병리 전처리 파이프라인 | 256×256 패치, stride 128 | `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` (별도 프로젝트) |
+| PanNuke | 내부 전처리 (pathology 보강, Google Sheet 경유) | 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
+| MoNuSeg 2018 | 내부 전처리 (pathology 보강, Google Sheet 경유) | 1000×1000 → 2×2 crop → 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
+| Ki-67 IHC 슬라이드 | 자체 pathology 전처리 파이프라인 | 256×256 패치, stride 128 | `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` (별도 프로젝트) |
 
 
 ## 4. 데이터 전처리 (학습 시 실시간)
