@@ -1,3 +1,3 @@
-[submodule "medficientSAM_finetuning/DP_MedificientSAM"]
-	path = medficientSAM_finetuning/DP_MedificientSAM
+[submodule "DP_MedificientSAM"]
+	path = DP_MedificientSAM
 	url = https://github.com/infinittAI/DP_MedificientSAM.git

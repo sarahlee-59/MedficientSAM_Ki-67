@@ -187,7 +187,7 @@ step_010000 ~ step_120000, last.ckpt (13개, 10.9GB).
 ### `weights/distilled-l1-20260612/` — **진행 중**
 
 2026-06-12 ~. Pathology_new 포함(19,062개 무결성 검증 완료), batch_size=16, num_workers=16, scratch 학습.  
-체크포인트: 10,000 step마다. 로그: `medficientSAM_finetuning/DP_MedificientSAM/logs/distill_l1_20260612.log`  
+체크포인트: 10,000 step마다. 로그: `DP_MedificientSAM/logs/distill_l1_20260612.log`  
 MLflow: http://localhost:5001 (run: `distill_l1_bs16_ep8_20260612`)
 
 ---
@@ -207,7 +207,7 @@ MLflow: http://localhost:5001 (run: `distill_l1_bs16_ep8_20260612`)
 | LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
 | Precision | bf16-mixed / Gradient clip 0.5 |
 | Checkpoint 저장 | `/mnt/Disk1/sylee/weights/distilled-l1-20260612/` (10,000 step마다) |
-| 로그 | `medficientSAM_finetuning/DP_MedificientSAM/logs/distill_l1_20260612.log` |
+| 로그 | `DP_MedificientSAM/logs/distill_l1_20260612.log` |
 | MLflow | http://localhost:5001, run: `distill_l1_bs16_ep8_20260612` |
 
 **이전 run과의 주요 차이**:
