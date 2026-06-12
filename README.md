@@ -10,37 +10,52 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ```
 .
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
-├── EXPERIMENT_LOG.md                 # 실험 로그 및 학습 결과 분석
+├── EXPERIMENT_LOG.md                 # Distillation 실험 로그 및 학습 결과
 ├── SERVICE_GUIDE.md                  # 웹 서비스 실행 방법 및 UI 사용 가이드
 ├── ki67-frontend.service             # systemd 서비스 유닛 — Next.js (포트 3000)
 ├── ki67-inference.service            # systemd 서비스 유닛 — FastAPI (포트 8000)
 ├── .env.example                      # 환경 변수 템플릿
 │
-├── src/                             # 학습 코드
-│   ├── train.py                     # Hydra 학습 진입점
-│   ├── export_onnx.py               # ONNX + INT8 양자화 export
-│   ├── export_torch.py              # PyTorch checkpoint export
-│   ├── infer.py                     # 검증셋 추론
-│   ├── models/                      # distill_module, finetune_module, efficientvit 등
-│   ├── data/                        # MedSAMDataModule, MedSAMDistillDataset 등
-│   ├── losses/                      # SAMLoss
-│   ├── metrics/                     # generalized_dice
-│   └── utils/                       # 로깅, 전처리 유틸
-├── configs/                         # Hydra 설정
+├── DP_MedificientSAM/               # 학습 프레임워크 (git submodule)
+│   ├── src/                         # 학습 코드
+│   │   ├── train.py                 # Hydra 학습 진입점
+│   │   ├── export_onnx.py           # ONNX + INT8 양자화 export
+│   │   ├── export_torch.py          # PyTorch checkpoint export
+│   │   ├── infer.py                 # 검증셋 추론
+│   │   ├── models/                  # distill_module, finetune_module, efficientvit 등
+│   │   ├── data/                    # MedSAMDataModule, MedSAMDistillDataset 등
+│   │   ├── losses/                  # SAMLoss
+│   │   ├── metrics/                 # generalized_dice
+│   │   └── utils/                   # 로깅, 전처리 유틸
+│   ├── configs/                     # Hydra 설정
+│   ├── train_scripts/               # 학습 실행 스크립트 (.sh)
+│   ├── weights -> ../weights/        # 심볼릭 링크 — 공식 가중치
+│   └── experiment_weights -> ../experiment_weights/  # 심볼릭 링크 — 실험 체크포인트
+│
+├── weights/                         # 공식 드라이브 다운로드 가중치 (gitignore)
+│   ├── medsam/                      # medsam_vit_b.pth (teacher), lite_medsam.pth
+│   ├── distilled-l0/l1/l2/          # 공식 distilled 가중치
+│   └── finetuned-l*/                # 공식 pretrained 기반 fine-tuning (배포 모델 포함)
+│
+├── experiment_weights/              # 직접 실험으로 생성된 체크포인트 (gitignore)
+│   ├── distilled-l1-prev-run/       # 04-29~05-01 소규모 데이터 run
+│   ├── distilled-l1-mlflow/         # 05-12~05-13 KILLED
+│   ├── distilled-l1-train_npz/      # 05-13 FAILED
+│   ├── distilled-l1-clean-20260514/ # 05-14~05-17 최종 완주 (배포 미채택)
+│   └── distilled-l1-20260612/       # 06-12~ 진행 중
+│
 ├── deployment/                      # 추론 배포 패키지
 │   ├── openvino/                    # OpenVINO FP32 — 현재 운영 중
 │   │   ├── encoder.xml / .bin       # FP32 인코더 IR ~167MB
 │   │   ├── decoder.xml / .bin       # FP32 디코더 IR ~19MB
 │   │   ├── infer.py                 # Ki67Segmenter 클래스 (openvino)
 │   │   ├── server.py                # FastAPI 추론 서버
-│   │   ├── example.py               # 단독 실행 예시
-│   │   └── requirements.txt
+│   │   └── example.py               # 단독 실행 예시
 │   └── onnx/                        # ONNX INT8 — 참고용
 │       ├── encoder.quantized.onnx   # INT8 인코더 ~44MB
 │       ├── decoder.quantized.onnx   # INT8 디코더 ~9MB
 │       ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime)
-│       ├── server.py                # FastAPI 추론 서버
-│       └── example.py               # 단독 실행 예시
+│       └── server.py                # FastAPI 추론 서버
 ├── frontend/                        # Next.js 웹 서비스 (포트 3000)
 │   ├── app/
 │   │   ├── api/encode/              # FastAPI 프록시 — encode 전용
