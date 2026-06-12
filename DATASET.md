@@ -75,8 +75,6 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 
 ```
 /mnt/Disk1/sylee/train_npz/Pathology_new/gts_npz_s128/   # 학습·평가용 NPZ 패치 (Ki-67)
-/mnt/Disk1/sylee/Pathology/                               # 원본 NPZ (절대 좌표 기반)
-/mnt/Disk1/sylee/Pathology_new/                           # 원본 PNG 시각화
 ```
 
 ### Ki-67 슬라이드 데이터 규모
