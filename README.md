@@ -16,21 +16,16 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ├── ki67-inference.service            # systemd 서비스 유닛 — FastAPI (포트 8000)
 ├── .env.example                      # 환경 변수 템플릿
 │
-├── DP_MedificientSAM/               # 학습 프레임워크 (git submodule)
-│   ├── src/                         # 학습 코드
-│   │   ├── train.py                 # Hydra 학습 진입점
-│   │   ├── export_onnx.py           # ONNX + INT8 양자화 export
-│   │   ├── export_torch.py          # PyTorch checkpoint export
-│   │   ├── infer.py                 # 검증셋 추론
-│   │   ├── models/                  # distill_module, finetune_module, efficientvit 등
-│   │   ├── data/                    # MedSAMDataModule, MedSAMDistillDataset 등
-│   │   ├── losses/                  # SAMLoss
-│   │   ├── metrics/                 # generalized_dice
-│   │   └── utils/                   # 로깅, 전처리 유틸
-│   ├── configs/                     # Hydra 설정
-│   ├── train_scripts/               # 학습 실행 스크립트 (.sh)
+├── DP_MedificientSAM/               # 학습 프레임워크 (git submodule — 공식 upstream)
+│   ├── src/                         # 학습 코드 (train.py, export_onnx.py, models/ 등)
+│   ├── configs/                     # Hydra 설정 (upstream 원본)
+│   ├── train_scripts/               # 학습 실행 스크립트 (.sh, upstream 원본)
+│   ├── .env                         # 학습 환경 변수 (CVPR2024_MEDSAM_DATA_DIR)
 │   ├── weights -> ../weights/        # 심볼릭 링크 — 공식 가중치
 │   └── experiment_weights -> ../experiment_weights/  # 심볼릭 링크 — 실험 체크포인트
+│
+├── src/                             # Ki-67 프로젝트용 학습 코드 (submodule 기반 커스터마이즈)
+├── configs/                         # Ki-67 프로젝트용 Hydra 설정 (MLflow·ki67_data_dir 반영)
 │
 ├── weights/                         # 공식 드라이브 다운로드 가중치 (gitignore)
 │   ├── medsam/                      # medsam_vit_b.pth (teacher), lite_medsam.pth
@@ -43,6 +38,9 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   ├── distilled-l1-train_npz/      # 05-13 FAILED
 │   ├── distilled-l1-clean-20260514/ # 05-14~05-17 최종 완주 (배포 미채택)
 │   └── distilled-l1-20260612/       # 06-12~ 진행 중
+│
+├── Pathology/                       # 원본 NPZ (절대 좌표 기반, gitignore)
+├── Pathology_new/                   # 원본 PNG 시각화 (gitignore)
 │
 ├── deployment/                      # 추론 배포 패키지
 │   ├── openvino/                    # OpenVINO FP32 — 현재 운영 중
