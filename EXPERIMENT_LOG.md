@@ -40,7 +40,8 @@ distillation 기반 fine-tuning은 성능 불량으로 채택되지 않았으며
 | 2026-05-12 ~ 05-13 | distill_l1_no_extracted | KILLED | 외부 강제 종료 |
 | 2026-05-13 (13:55) | distill_l1_no_extracted | FAILED (3h) | Pathology_new 누락 파일 |
 | 2026-05-13 (17:27) | distill_l1_train_npz_all | KILLED | 외부 강제 종료 (5h 36m) |
-| 2026-05-14 ~ 05-17 | distill_l1_npz_clean | **FINISHED** | — (최종 성공) |
+| 2026-05-14 ~ 05-17 | distill_l1_npz_clean | **FINISHED** | — (최종 성공, 배포 미채택) |
+| 2026-06-12 ~ | distill_l1_bs16_ep8_20260612 | **IN PROGRESS** | — (Pathology_new 포함 재학습) |
 
 ---
 
@@ -158,6 +159,16 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 
 ## Distillation 체크포인트 현황
 
+### `weights/distilled-l1/` — 출처 불명 (다운로드 추정)
+
+`step_400000.ckpt` 1개 (842MB, 2026-04-29 09:24).  
+step_010000 ~ step_120000은 오늘(2026-06-12) `distilled-l1-prev-run/`으로 이동.
+
+### `weights/distilled-l1-prev-run/` — 2026-04-29 ~ 05-01 (소규모 데이터 FINISHED)
+
+step_010000 ~ step_120000, last.ckpt (13개, 10.9GB).  
+소규모 데이터(~127,936 슬라이스), batch_size=8, 8에폭 완주.
+
 ### `weights/distilled-l1-mlflow/` (5.0GB)
 
 2026-05-12 ~ 05-13. batch_size=16, step_050000까지 진행 후 외부 KILL.  
@@ -172,6 +183,41 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 2026-05-14 ~ 05-17 (63.8h). Pathology_new 제외, batch_size=8, scratch 학습.  
 8 epoch / 400,000 steps 완주. 10,000 steps마다 40개 체크포인트 저장.  
 `step_400000.ckpt` (842MB) = `last.ckpt` — fine-tuning 시도했으나 성능 불량으로 채택 안 됨.
+
+### `weights/distilled-l1-20260612/` — **진행 중**
+
+2026-06-12 ~. Pathology_new 포함(19,062개 무결성 검증 완료), batch_size=16, num_workers=16, scratch 학습.  
+체크포인트: 10,000 step마다. 로그: `medficientSAM_finetuning/DP_MedificientSAM/logs/distill_l1_20260612.log`  
+MLflow: http://localhost:5001 (run: `distill_l1_bs16_ep8_20260612`)
+
+---
+
+## 2026-06-12 재학습 — distill_l1_bs16_ep8_20260612
+
+### 학습 설정
+
+| 항목 | 값 |
+|---|---|
+| Teacher | MedSAM (SAM ViT-B), `medsam_vit_b.pth` — 동결 |
+| Student | EfficientViT-SAM L1 (`pretrained=False`) |
+| 데이터 소스 | `train_npz/` **Pathology_new 포함** (무결성 검증 완료, 19,062개), limit_sample=400,000 |
+| Batch size | **16** / Num workers 16 |
+| Epochs | 8 (25,000 steps/epoch, 총 200,000 steps) |
+| Optimizer | AdamW (lr=0.075, weight_decay=0.0005) |
+| LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
+| Precision | bf16-mixed / Gradient clip 0.5 |
+| Checkpoint 저장 | `/mnt/Disk1/sylee/weights/distilled-l1-20260612/` (10,000 step마다) |
+| 로그 | `medficientSAM_finetuning/DP_MedificientSAM/logs/distill_l1_20260612.log` |
+| MLflow | http://localhost:5001, run: `distill_l1_bs16_ep8_20260612` |
+
+**이전 run과의 주요 차이**:
+
+| 항목 | distill_l1_npz_clean (05-14) | 이번 (06-12) |
+|---|---|---|
+| Pathology_new | **제외** | **포함** (무결성 검증 완료) |
+| batch_size | 8 | **16** |
+| steps/epoch | 50,000 | **25,000** |
+| 총 steps | 400,000 | **200,000** |
 
 ---
 
