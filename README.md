@@ -12,6 +12,9 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # 실험 로그 및 학습 결과 분석
 ├── SERVICE_GUIDE.md                  # 웹 서비스 실행 방법 및 UI 사용 가이드
+├── ki67-frontend.service             # systemd 서비스 유닛 — Next.js (포트 3000)
+├── ki67-inference.service            # systemd 서비스 유닛 — FastAPI (포트 8000)
+├── .env.example                      # 환경 변수 템플릿
 │
 ├── src/                             # 학습 코드
 │   ├── train.py                     # Hydra 학습 진입점
@@ -44,8 +47,11 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   │   ├── api/decode/              # FastAPI 프록시 — decode 전용
 │   │   ├── api/infer/               # FastAPI 프록시 — encode+decode 통합
 │   │   ├── realtime/                # 실시간 세그멘테이션 UI
+│   │   │   ├── page.tsx             # 메인 UI 컴포넌트
+│   │   │   ├── types.ts             # 공유 타입 정의
+│   │   │   └── utils/segmentation.ts # 마스크 → 윤곽선 변환
 │   │   └── benchmark/               # 추론 속도 벤치마크 페이지
-│   └── public/samples/              # 샘플 이미지
+│   └── public/samples/              # 샘플 이미지 (bench1~5, sample1)
 ├── benchmark/                       # 추론 속도 벤치마크
 │   ├── benchmark_speed.py           # ONNX-INT8 vs OpenVINO-FP32 측정
 │   ├── benchmark_results.md         # 결과 요약
