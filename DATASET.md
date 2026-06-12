@@ -35,8 +35,8 @@
 | CT | AMOS22 | 240 | 스프레드시트 경유 |
 | CT | COVID-19-20 | 199 | 스프레드시트 경유 |
 | CT | KiTS23 | 489 | 스프레드시트 경유 |
-| CT | TotalSegmentator | 1,174 | 스프레드시트 경유. 전신 117개 부위 커버 |
-| Dermoscopy | ISIC-2017 | 2,000 | Sheet 원본 → stride 128, crop 256×256 tiling → NPZ |
+| CT | TotalSegmentator | 1,174 | 스프레드시트 경유, 전신 117개 부위 커버 |
+| Dermoscopy | ISIC-2017 | 2,000 | 스프레드시트 경유, stride 128 tiling → NPZ |
 | Endoscopy | CholecSeg8k | 10,117 | |
 | Endoscopy | Kvasir-SEG | 1,000 | |
 | Endoscopy | m2caiSeg | 1,807 | |
@@ -47,8 +47,8 @@
 | MR | AMOS MR, BraTS, CervicalCancer 등 13종 | 4,881 | |
 | OCT | Intraretinal-Cystoid-Fluid | 1,436 | |
 | Pathology | Ki-67 (gts_npz_s128) | 16,376 | |
-| Pathology | PanNuke | 2,538 | 병리 보강 추가 (스프레드시트 경유) |
-| Pathology | MoNuSeg2018 | 148 | 병리 보강 추가 (스프레드시트 경유) |
+| Pathology | PanNuke | 2,538 | 스프레드시트 경유, 병리 보강 추가 |
+| Pathology | MoNuSeg2018 | 148 | 스프레드시트 경유, 병리 보강 추가 |
 | PET | autoPET | 345 | |
 | US | Breast-Ultrasound, hc18 | 1,646 | |
 | XRay | Chest X-ray, COVID 관련 4종 | 22,178 | |
