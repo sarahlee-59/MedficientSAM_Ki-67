@@ -72,7 +72,7 @@ Did you mean: 'Transform3D'?
 
 - 데이터: `train_npz/` 부분 다운로드 상태 (유효 2D 슬라이스 약 127,936개)
 - batch_size: 8 / num_workers: 16
-- 체크포인트: `weights/distilled-l1-prev-run/` (step_010000 ~ step_120000, last.ckpt, 13개, 10.9GB)
+- 체크포인트: `experiment_weights/distilled-l1-prev-run/` (step_010000 ~ step_120000, last.ckpt, 13개, 10.9GB)
 
 **결과**: 8 epoch 완주, 최종 loss **0.00133**  
 데이터 다양성 부족 → CVPR2024 전체 데이터로 재학습 필요.
@@ -110,11 +110,11 @@ Did you mean: 'Transform3D'?
 | batch_size | 16 | 16 | — |
 | 종료 시점 | 외부 KILL | Epoch 2, step ~8,745 (약 3h) | Epoch 0, 63% 진행 중 (5h 36m) |
 | 종료 원인 | 외부 강제 종료 | Pathology_new 누락 파일 | 외부 강제 종료 |
-| 체크포인트 | `weights/distilled-l1-mlflow/` (5.0GB, step_050000) | — | `weights/distilled-l1-train_npz/` (3.3GB, step_030000) |
+| 체크포인트 | `experiment_weights/distilled-l1-mlflow/` (5.0GB, step_050000) | — | `experiment_weights/distilled-l1-train_npz/` (3.3GB, step_030000) |
 
 #### ① 2026-05-12~13 — KILLED
 
-- `weights/distilled-l1-mlflow/last.ckpt` 기점으로 resume, step_050000까지 진행 후 외부 KILL.
+- `experiment_weights/distilled-l1-mlflow/last.ckpt` 기점으로 resume, step_050000까지 진행 후 외부 KILL.
 - 이 `last.ckpt`를 ②의 resume 기점으로 재사용했으나 Pathology_new 문제와 겹쳐 실패.
 
 #### ② 2026-05-13 13:55 — Pathology_new 누락 파일 (핵심 실패)
@@ -156,7 +156,7 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 | Optimizer | AdamW (lr=0.075, weight_decay=0.0005) |
 | LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
 | Precision | bf16-mixed / Gradient clip 0.5 |
-| 체크포인트 | `weights/distilled-l1-clean-20260514/` (10,000 step마다, 34GB) |
+| 체크포인트 | `experiment_weights/distilled-l1-clean-20260514/` (10,000 step마다, 34GB) |
 | 로그 | `medficientsam/logs/distill_l1_nohup_20260514.log` |
 
 #### Epoch별 결과
@@ -204,7 +204,7 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 | Optimizer | AdamW (lr=0.075, weight_decay=0.0005) |
 | LR Scheduler | ExponentialLR (gamma=0.5, epoch 단위) |
 | Precision | bf16-mixed / Gradient clip 0.5 |
-| 체크포인트 | `weights/distilled-l1-20260612/` (10,000 step마다) |
+| 체크포인트 | `experiment_weights/distilled-l1-20260612/` (10,000 step마다) |
 | 로그 | `DP_MedificientSAM/logs/distill_l1_20260612.log` |
 | MLflow | http://localhost:5001, run: `distill_l1_bs16_ep8_20260612` |
 
@@ -228,13 +228,15 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 
 ### 직접 실험으로 생성된 체크포인트
 
+경로 기준: `/mnt/Disk1/sylee/experiment_weights/` (심볼릭 링크: `DP_MedificientSAM/experiment_weights/`)
+
 | 경로 | 실험 기간 | 크기 | 설명 |
 |---|---|---|---|
-| `weights/distilled-l1-prev-run/` | 04-29 ~ 05-01 | 10.9GB | step_010000 ~ step_120000 + last.ckpt (13개), 소규모 데이터 FINISHED |
-| `weights/distilled-l1-mlflow/` | 05-12 ~ 05-13 | 5.0GB | step_050000까지 진행 후 KILL, resume 기점으로 사용됐으나 실패 |
-| `weights/distilled-l1-train_npz/` | 05-13 | 3.3GB | step_030000 진행 후 FileNotFoundError 실패 |
-| `weights/distilled-l1-clean-20260514/` | 05-14 ~ 05-17 | 34GB | 40개 체크포인트, 최종 완주. 성능 불량으로 배포 미채택 |
-| `weights/distilled-l1-20260612/` | 06-12 ~ | 진행 중 | 10,000 step마다 저장 |
+| `experiment_weights/distilled-l1-prev-run/` | 04-29 ~ 05-01 | 10.9GB | step_010000 ~ step_120000 + last.ckpt (13개), 소규모 데이터 FINISHED |
+| `experiment_weights/distilled-l1-mlflow/` | 05-12 ~ 05-13 | 5.0GB | step_050000까지 진행 후 KILL, resume 기점으로 사용됐으나 실패 |
+| `experiment_weights/distilled-l1-train_npz/` | 05-13 | 3.3GB | step_030000 진행 후 FileNotFoundError 실패 |
+| `experiment_weights/distilled-l1-clean-20260514/` | 05-14 ~ 05-17 | 34GB | 40개 체크포인트, 최종 완주. 성능 불량으로 배포 미채택 |
+| `experiment_weights/distilled-l1-20260612/` | 06-12 ~ | 진행 중 | 10,000 step마다 저장 |
 
 ---
 
