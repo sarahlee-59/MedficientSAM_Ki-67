@@ -16,10 +16,10 @@ import numpy as np
 
 # ── 경로 설정 ──────────────────────────────────────────────────────────────
 BASE       = Path("/mnt/Disk1/sylee")
-IMAGE_DIR  = BASE / "Ki-67_service/frontend/public/samples"
-JSON_DIR   = BASE / "Ki-67_service/benchmark/results"
-ONNX_DIR   = BASE / "Ki-67_service/deployment"
-OV_DIR     = BASE / "Ki-67_service/deployment/openvino"
+IMAGE_DIR  = BASE / "frontend/public/samples"
+JSON_DIR   = BASE / "benchmark/results"
+ONNX_DIR   = BASE / "deployment"
+OV_DIR     = BASE / "deployment/openvino"
 
 sys.path.insert(0, str(ONNX_DIR / "onnx"))
 import infer as onnx_infer
