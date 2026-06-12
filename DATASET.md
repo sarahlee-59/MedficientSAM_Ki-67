@@ -46,8 +46,8 @@
 | MR | AMOS MR, BraTS, CervicalCancer 등 13종 | 4,881 | |
 | OCT | Intraretinal-Cystoid-Fluid | 1,436 | |
 | Pathology | Ki-67 (gts_npz_s128) | 16,376 | |
-| Pathology | PanNuke | 2,538 | |
-| Pathology | MoNuSeg2018 | 148 | |
+| Pathology | PanNuke | 2,538 | 스프레드시트 경유 |
+| Pathology | MoNuSeg2018 | 148 | 스프레드시트 경유 |
 | PET | autoPET | 345 | |
 | US | Breast-Ultrasound, hc18 | 1,646 | |
 | XRay | Chest X-ray, COVID 관련 4종 | 22,178 | |
