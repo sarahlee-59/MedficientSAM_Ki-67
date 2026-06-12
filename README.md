@@ -128,8 +128,8 @@ train_npz/
 ├── OCT/         (Intraretinal-Cystoid-Fluid)
 ├── Pathology_new/
 │   ├── gts_npz_s128/            # Ki-67 IHC 슬라이드 타일 (stride 128)
-│   ├── Cancer(PanNuke)_gts_npz/ # PanNuke 핵 데이터셋
-│   └── MoNuSeg2018_gts_npz/     # MoNuSeg 2018
+│   ├── Cancer(PanNuke)_gts_npz/ # PanNuke 핵 데이터셋 ← 스프레드시트 경유
+│   └── MoNuSeg2018_gts_npz/     # MoNuSeg 2018 ← 스프레드시트 경유
 ├── PET/         (autoPET)
 ├── US/          (Breast-Ultrasound, hc18)
 └── XRay/        (ChestXray, COVID-19-Radiography, COVID-QU-Ex, Pneumothorax)
