@@ -292,35 +292,6 @@ batch_size=16이 8 대비 더 안정적인 gradient 추정을 제공하지만, u
 
 ---
 
-## 체크포인트 현황
-
-### 공식 드라이브 다운로드 (2026-04-29)
-
-| 경로 | 크기 | 용도 |
-|---|---|---|
-| `weights/medsam/medsam_vit_b.pth` | 358MB | Teacher 모델 — 학습 중 동결 |
-| `weights/medsam/lite_medsam.pth` | 38MB | LiteMedSAM 참고용 |
-| `weights/distilled-l1/step_400000.ckpt` | 842MB | 공식 distilled L1 — 출처 불명, 비교 참고용 |
-| `weights/distilled-l0/` | — | 공식 distilled L0 |
-| `weights/distilled-l2/` | — | 공식 distilled L2 |
-| `weights/finetuned-l1-augmented/best.ckpt` | 542MB | **배포 모델** — 공식 pretrained 기반 fine-tuning |
-| `weights/finetuned-l1-unaugmented/` | — | augmentation 없는 fine-tuning 비교군 |
-| `weights/finetuned-l0-augmented/`, `finetuned-l0-unaugmented/` | — | L0 fine-tuning 비교군 |
-| `weights/finetuned-l2-augmented/`, `finetuned-l2-unaugmented/` | — | L2 fine-tuning 비교군 |
-
-### 직접 실험으로 생성된 체크포인트
-
-> **모든 직접 실험 체크포인트는 `experiment_weights/` 하위에 저장됨** (`weights/`가 아님)
-
-| 경로 | 실험 기간 | 크기 | 설명 |
-|---|---|---|---|
-| `experiment_weights/distilled-l1-prev-run/` | 04-29 ~ 05-01 | 11GB | step_010000 ~ step_120000 + last.ckpt (13개), 소규모 데이터 FINISHED |
-| `experiment_weights/distilled-l1-mlflow/` | 05-12 ~ 05-13 | 5.0GB | step_050000까지 진행 후 KILL, resume 기점으로 사용됐으나 실패 |
-| `experiment_weights/distilled-l1-train_npz/` | 05-13 | 3.3GB | step_030000 진행 후 FileNotFoundError 실패 |
-| `experiment_weights/distilled-l1-clean-20260514/` | 05-14 ~ 05-17 | 34GB | 40개 체크포인트, 최종 완주. 성능 불량으로 배포 미채택 |
-| `experiment_weights/distilled-l1-20260612/` | 06-12 ~ 06-15 | 18GB | step_010000 ~ step_200000 + last.ckpt (21개), **FINISHED** — Pathology_new 포함 전량 데이터 완주 |
----
-
 ## 코드 수정 이력 (이 프로젝트에서 변경한 사항)
 
 | 파일 | 수정 내용 | 이유 |
