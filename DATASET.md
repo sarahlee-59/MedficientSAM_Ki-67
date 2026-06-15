@@ -128,14 +128,6 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 
 `train_npz/` 데이터는 출처에 따라 세 가지 방식으로 준비했습니다.
 
-| 방식 | 대상 | 요약 |
-|------|------|------|
-| A | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지에서 NPZ로 배포 → 그냥 다운로드 |
-| B | CT 5종 | 원본 NIfTI를 변환 스크립트로 직접 NPZ 생성 |
-| C | Pathology, Dermoscopy | 사수님이 변환 후 내부 서버에서 다운로드 |
-
----
-
 ### A. 다운로드만 한 것 (변환 없음)
 
 챌린지 주최 측이 이미 NPZ로 만들어서 배포한 데이터입니다. 그대로 다운로드해서 썼습니다.
@@ -184,8 +176,6 @@ pip install connected-components-3d SimpleITK
 
 #### CT / AbdomenCT-1K (1,000개)
 
-> bash 히스토리 미확인 — 파일명 패턴(`CT_AbdomenCT-1K_Case_00001.npz`)으로 아래 명령 추정
-
 ```bash
 python3 pre_CT_MR.py \
   -modality CT -anatomy AbdomenCT-1K \
@@ -198,8 +188,6 @@ python3 pre_CT_MR.py \
 
 #### CT / AMOS22 (240개)
 
-> bash 히스토리 미확인 — 파일명 패턴(`CT_AMOS22_amos_0001.npz`)으로 아래 명령 추정
-
 ```bash
 python3 pre_CT_MR.py \
   -modality CT -anatomy AMOS22 \
@@ -211,8 +199,6 @@ python3 pre_CT_MR.py \
 ```
 
 #### CT / COVID-19-20 (199개)
-
-> bash 히스토리 확인됨
 
 원본이 `파일명_ct.nii.gz` / `파일명_seg.nii.gz` 형태로 섞여 있어서 먼저 정리했습니다.
 
@@ -241,8 +227,6 @@ python3 pre_CT_MR.py \
 
 #### CT / KiTS23 (489개)
 
-> bash 히스토리 확인됨
-
 원본이 `case_00001/imaging.nii.gz` 형태의 케이스별 폴더라 먼저 정리했습니다.
 
 ```bash
@@ -267,8 +251,6 @@ python3 pre_CT_MR.py \
 
 #### CT / TotalSegmentator (1,174개)
 
-> bash 히스토리 미확인 — 파일명 패턴(`CT_TotalSegmentator_s0000.npz`)으로 아래 명령 추정
-
 ```bash
 python3 pre_CT_MR.py \
   -modality CT -anatomy TotalSegmentator \
@@ -283,7 +265,7 @@ python3 pre_CT_MR.py \
 
 ---
 
-### C. 사수님이 변환 후 제공한 것
+### C. 내부 전처리 후 다운로드한 것
 
 #### Pathology / Ki-67 (gts_npz_s128)
 
@@ -297,7 +279,6 @@ unzip gts_npz_s128.zip
 |------|------|
 | 원본 | 부산 백병원 Ki-67 IHC 슬라이드 89장 |
 | 변환 방법 | 256×256 패치, stride 128 sliding window |
-| 변환 주체 | 사수님 (`/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/`) |
 
 #### Dermoscopy / ISIC-2017
 
@@ -305,7 +286,6 @@ unzip gts_npz_s128.zip
 |------|------|
 | 원본 | ISIC-2017 원본 이미지 (Google Sheet 경유 다운로드) |
 | 변환 방법 | stride 128, crop 256×256 sliding window tiling → NPZ |
-| 변환 주체 | 사수님 (별도 스크립트, 이 레포 미포함) |
 
 #### Pathology 보강 데이터 (PanNuke, MoNuSeg 2018)
 
@@ -313,8 +293,6 @@ unzip gts_npz_s128.zip
 |----------|----------|
 | PanNuke | 원본 이미지 → 256×256 resize → NPZ |
 | MoNuSeg 2018 | 1000×1000 원본 → 2×2 crop → 256×256 resize → NPZ |
-
-두 데이터셋 모두 사수님이 변환하여 제공 (별도 스크립트, 이 레포 미포함)
 
 
 ## 4. 데이터 전처리 (학습 시 실시간)
