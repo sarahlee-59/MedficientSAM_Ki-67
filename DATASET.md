@@ -88,12 +88,6 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 | 총 패치 수 | 16,376 |
 | 파일명 형식 | `2D_<슬라이드ID>_r<행>_c<열>.npz` |
 
-```python
-data = np.load("2D_<slide>_r00_c00.npz")
-data["imgs"]  # (256, 256, 3) uint8  — IHC 패치 RGB
-data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...=각 세포)
-```
-
 ### 공개 Pathology 보조 데이터
 
 | 데이터셋 | 설명 | 패치 수 | 전처리 |
@@ -184,15 +178,6 @@ CT 원본 데이터는 NIfTI(`.nii.gz`) 형식이라 `pre_CT_MR.py`로 직접 NP
 
 ```bash
 pip install connected-components-3d SimpleITK
-```
-
-#### 스크립트 수정 (전체 케이스 변환 시 필수)
-
-기본값이 40개 케이스로 제한되어 있어 아래와 같이 수정해야 합니다.
-
-```bash
-sed -i 's/tr_names = names\[:40\]/tr_names = names/' pre_CT_MR.py
-sed -i 's/ts_names = names\[40:\]/ts_names = []/' pre_CT_MR.py
 ```
 
 ---
