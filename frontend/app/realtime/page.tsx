@@ -221,10 +221,15 @@ function marchingSquares(field: Float32Array, w: number, h: number): [number, nu
 
 /** 연속 logit 필드 → 세포 윤곽선. 가장 넓은 0-등고선 루프를 선택하고
  *  RDP로 중복점만 제거(디테일 보존, 스무딩 없음). */
-/** 바늘(스파이크) 점 제거 — 연속 세 점 a-b-c 에서 b가 a→c 선분으로부터
- *  eps px 이내에 있으면(=직선과 거의 같거나 뒤로 꺾임) b를 제거.
- *  작은 세포에서 1~2px 노이즈가 좁은 슬릿/바늘로 나타나는 것을 정리한다. */
-function removeSpikePoints(pts: [number, number][], eps = 1.2): [number, number][] {
+/** 방향 반전(U턴) 기반 스파이크 제거.
+ *  a→b 벡터와 b→c 벡터의 코사인이 cosThresh 이하(= 날카롭게 역방향)이고
+ *  b가 a-c 선분에서 maxDist px 이내일 때만 b를 제거.
+ *  완만한 곡선 점은 방향이 충분히 유지되므로 건드리지 않음. */
+function removeHairpinSpikes(
+  pts: [number, number][],
+  cosThresh = -0.7,
+  maxDist = 2.0,
+): [number, number][] {
   if (pts.length < 4) return pts;
   let cur = pts.slice();
   let changed = true;
@@ -236,19 +241,27 @@ function removeSpikePoints(pts: [number, number][], eps = 1.2): [number, number]
       const a = cur[(i - 1 + n) % n];
       const b = cur[i];
       const c = cur[(i + 1) % n];
-      const dx = c[0] - a[0], dy = c[1] - a[1];
-      const len2 = dx * dx + dy * dy;
-      let d2: number;
-      if (len2 < 1e-9) {
-        const ex = b[0] - a[0], ey = b[1] - a[1];
-        d2 = ex * ex + ey * ey;
-      } else {
-        const t = ((b[0] - a[0]) * dx + (b[1] - a[1]) * dy) / len2;
-        const cx = a[0] + t * dx, cy = a[1] + t * dy;
-        const ex = b[0] - cx, ey = b[1] - cy;
-        d2 = ex * ex + ey * ey;
+      // ab, bc 벡터
+      const abx = b[0] - a[0], aby = b[1] - a[1];
+      const bcx = c[0] - b[0], bcy = c[1] - b[1];
+      const abLen = Math.hypot(abx, aby), bcLen = Math.hypot(bcx, bcy);
+      // a==b 또는 b==c 인 중복점도 제거
+      if (abLen < 1e-9 || bcLen < 1e-9) { changed = true; continue; }
+      const cosA = (abx * bcx + aby * bcy) / (abLen * bcLen);
+      if (cosA < cosThresh) {
+        // 방향이 역전됐을 때만 거리 조건 추가 확인
+        const dx = c[0] - a[0], dy = c[1] - a[1];
+        const len2 = dx * dx + dy * dy;
+        let d2: number;
+        if (len2 < 1e-9) {
+          d2 = abx * abx + aby * aby;
+        } else {
+          const t = ((b[0] - a[0]) * dx + (b[1] - a[1]) * dy) / len2;
+          const px = a[0] + t * dx - b[0], py = a[1] + t * dy - b[1];
+          d2 = px * px + py * py;
+        }
+        if (d2 <= maxDist * maxDist) { changed = true; continue; }
       }
-      if (d2 <= eps * eps) { changed = true; continue; }
       next.push(b);
     }
     if (next.length < 3) break;
@@ -266,7 +279,7 @@ function logitsToPolyline(field: Float32Array, w: number, h: number): [number, n
     if (a > bestArea) { bestArea = a; best = lp; }
   }
   const simplified = simplifyClosed(best, 0.5);
-  return removeSpikePoints(simplified, 1.2);
+  return removeHairpinSpikes(simplified);
 }
 
 /** 윤곽선 점들을 직선으로 잇는 경로 */
