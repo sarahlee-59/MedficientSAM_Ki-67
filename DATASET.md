@@ -130,16 +130,206 @@ data["gts"]   # (256, 256) int32    — 세포 instance 마스크 (0=bg, 1,2,...
 
 ---
 
-## 3. NPZ 전처리 코드 출처
+## 3. NPZ 전처리 명령어
 
-| 데이터 | 전처리 주체 | 방법 | 코드 위치 |
-|--------|------------|------|----------|
-| Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지 주최 측 | 이미 NPZ 형태로 배포 | [MedSAM/LiteMedSAM 공식 레포](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM) (`pre_grey_rgb.py`) |
-| CT (AbdomenCT-1K, AMOS22, COVID-19-20, KiTS23, TotalSegmentator) | 챌린지 주최 측 (Google Sheet 경유) | 이미 NPZ 형태로 제공 | 위 MedSAM 레포 (`pre_CT_MR.py`) |
-| Dermoscopy — ISIC-2017 | 내부 전처리 | stride 128, crop 256×256 sliding window tiling → NPZ | 별도 스크립트 (이 레포 미포함) |
-| PanNuke | 내부 전처리 (pathology 보강, Google Sheet 경유) | 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
-| MoNuSeg 2018 | 내부 전처리 (pathology 보강, Google Sheet 경유) | 1000×1000 → 2×2 crop → 256×256 resize → NPZ | 별도 스크립트 (이 레포 미포함) |
-| Ki-67 IHC 슬라이드 | 자체 pathology 전처리 파이프라인 | 256×256 패치, stride 128 | `/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/` (별도 프로젝트) |
+`train_npz/` 데이터는 출처에 따라 세 가지 방식으로 준비했습니다.
+
+| 방식 | 대상 | 요약 |
+|------|------|------|
+| A | Endoscopy, Fundus, Mammography, Microscopy, MR, OCT, PET, US, XRay | 챌린지에서 NPZ로 배포 → 그냥 다운로드 |
+| B | CT 5종 | 원본 NIfTI를 변환 스크립트로 직접 NPZ 생성 |
+| C | Pathology, Dermoscopy | 사수님이 변환 후 내부 서버에서 다운로드 |
+
+---
+
+### A. 다운로드만 한 것 (변환 없음)
+
+챌린지 주최 측이 이미 NPZ로 만들어서 배포한 데이터입니다. 그대로 다운로드해서 썼습니다.
+
+| 모달리티 | 데이터셋 |
+|---------|---------|
+| Endoscopy | CholecSeg8k, Kvasir-SEG, m2caiSeg |
+| Fundus | IDRiD, PAPILA |
+| Mammography | CDD-CESM |
+| Microscopy | NeurIPS22CellSeg |
+| MR | AMOS MR, BraTS 등 13종 |
+| OCT | Intraretinal-Cystoid-Fluid |
+| PET | autoPET |
+| US | Breast-Ultrasound, hc18 |
+| XRay | Chest-Xray, COVID-19-Radiography 등 |
+
+다운로드 출처: [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs)
+
+---
+
+### B. 직접 변환한 것 — CT 5종
+
+CT 원본 데이터는 NIfTI(`.nii.gz`) 형식이라 `pre_CT_MR.py`로 직접 NPZ로 변환했습니다.
+이 레포에 `pre_CT_MR.py`가 포함되어 있으며, 원본은 [bowang-lab/MedSAM LiteMedSAM 브랜치](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM)입니다.
+
+#### 전처리 과정 (스크립트 내부 동작)
+
+```
+① 3D 전체에서 1,000 voxel 미만 객체 제거 (너무 작아서 학습에 불필요)
+② 각 2D 슬라이스에서 100 pixel 미만 객체 제거
+③ 마스크가 비어있는 슬라이스 제거 → 유효 슬라이스만 추출
+④ HU 윈도우 적용: Level=40, Width=400 → 유효 범위 -160~240 HU
+   → 0~255 (uint8) 로 정규화
+⑤ NPZ로 저장: imgs(이미지 볼륨), gts(마스크 볼륨), spacing(voxel 간격)
+```
+
+출력 파일명 형식: `CT_<데이터셋명>_<케이스ID>.npz`
+
+#### 의존성 설치
+
+```bash
+pip install connected-components-3d SimpleITK
+```
+
+#### 스크립트 수정 (전체 케이스 변환 시 필수)
+
+기본값이 40개 케이스로 제한되어 있어 아래와 같이 수정해야 합니다.
+
+```bash
+sed -i 's/tr_names = names\[:40\]/tr_names = names/' pre_CT_MR.py
+sed -i 's/ts_names = names\[40:\]/ts_names = []/' pre_CT_MR.py
+```
+
+---
+
+#### CT / AbdomenCT-1K (1,000개)
+
+> bash 히스토리 미확인 — 파일명 패턴(`CT_AbdomenCT-1K_Case_00001.npz`)으로 아래 명령 추정
+
+```bash
+python3 pre_CT_MR.py \
+  -modality CT -anatomy AbdomenCT-1K \
+  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
+  -img_path <AbdomenCT-1K 이미지 폴더> \
+  -gt_path  <AbdomenCT-1K 라벨 폴더> \
+  -output_path /mnt/Disk1/sylee/npz_output \
+  -num_workers 8
+```
+
+#### CT / AMOS22 (240개)
+
+> bash 히스토리 미확인 — 파일명 패턴(`CT_AMOS22_amos_0001.npz`)으로 아래 명령 추정
+
+```bash
+python3 pre_CT_MR.py \
+  -modality CT -anatomy AMOS22 \
+  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
+  -img_path <AMOS22 이미지 폴더> \
+  -gt_path  <AMOS22 라벨 폴더> \
+  -output_path /mnt/Disk1/sylee/npz_output \
+  -num_workers 8
+```
+
+#### CT / COVID-19-20 (199개)
+
+> bash 히스토리 확인됨
+
+원본이 `파일명_ct.nii.gz` / `파일명_seg.nii.gz` 형태로 섞여 있어서 먼저 정리했습니다.
+
+```bash
+# 1단계: 이미지·라벨을 별도 폴더로 분리
+mkdir -p /mnt/Disk1/sylee/COVID-19-20_organized/{images,labels}
+
+cd /mnt/Disk1/sylee/COVID-19-20_v2/Train
+for f in *_ct.nii.gz;  do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_organized/images/${f%_ct.nii.gz}.nii.gz";  done
+for f in *_seg.nii.gz; do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_organized/labels/${f%_seg.nii.gz}.nii.gz"; done
+
+cd /mnt/Disk1/sylee/COVID-19-20_v2/Validation
+for f in *_ct.nii.gz;  do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_organized/images/${f%_ct.nii.gz}.nii.gz";  done
+for f in *_seg.nii.gz; do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_organized/labels/${f%_seg.nii.gz}.nii.gz"; done
+
+# 2단계: NPZ 변환
+cd /mnt/Disk1/sylee
+python3 pre_CT_MR.py \
+  -modality CT -anatomy COVID-19-20 \
+  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
+  -img_path /mnt/Disk1/sylee/COVID-19-20_organized/images \
+  -gt_path  /mnt/Disk1/sylee/COVID-19-20_organized/labels \
+  -output_path /mnt/Disk1/sylee/npz_output \
+  -num_workers 8
+```
+
+#### CT / KiTS23 (489개)
+
+> bash 히스토리 확인됨
+
+원본이 `case_00001/imaging.nii.gz` 형태의 케이스별 폴더라 먼저 정리했습니다.
+
+```bash
+# 1단계: case 폴더 → images/labels 분리
+mkdir -p /mnt/Disk1/sylee/kits23_organized/{images,labels}
+for case_dir in /mnt/Disk1/sylee/kits23/dataset/case_*/; do
+  n=$(basename "$case_dir")
+  [ -f "${case_dir}imaging.nii.gz" ]      && ln -sf "$(realpath ${case_dir}imaging.nii.gz)"      "kits23_organized/images/${n}.nii.gz"
+  [ -f "${case_dir}segmentation.nii.gz" ] && ln -sf "$(realpath ${case_dir}segmentation.nii.gz)" "kits23_organized/labels/${n}.nii.gz"
+done
+
+# 2단계: NPZ 변환
+cd /mnt/Disk1/sylee
+python3 pre_CT_MR.py \
+  -modality CT -anatomy KiTS23 \
+  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
+  -img_path /mnt/Disk1/sylee/kits23_organized/images \
+  -gt_path  /mnt/Disk1/sylee/kits23_organized/labels \
+  -output_path /mnt/Disk1/sylee/npz_output \
+  -num_workers 8
+```
+
+#### CT / TotalSegmentator (1,174개)
+
+> bash 히스토리 미확인 — 파일명 패턴(`CT_TotalSegmentator_s0000.npz`)으로 아래 명령 추정
+
+```bash
+python3 pre_CT_MR.py \
+  -modality CT -anatomy TotalSegmentator \
+  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
+  -img_path <TotalSegmentator 이미지 폴더> \
+  -gt_path  <TotalSegmentator 라벨 폴더> \
+  -output_path /mnt/Disk1/sylee/npz_output \
+  -num_workers 8
+```
+
+변환된 NPZ는 `npz_output/MedSAM_train/CT_<데이터셋명>/` 에 저장되며, 이후 `train_npz/CT/<데이터셋명>/` 으로 이동했습니다.
+
+---
+
+### C. 사수님이 변환 후 제공한 것
+
+#### Pathology / Ki-67 (gts_npz_s128)
+
+```bash
+wget -O gts_npz_s128.zip "http://10.0.30.191:5000/sharing/4kCrJ5jh6"
+unzip gts_npz_s128.zip
+# → train_npz/Pathology_new/gts_npz_s128/ 에 배치
+```
+
+| 항목 | 내용 |
+|------|------|
+| 원본 | 부산 백병원 Ki-67 IHC 슬라이드 89장 |
+| 변환 방법 | 256×256 패치, stride 128 sliding window |
+| 변환 주체 | 사수님 (`/mnt/Disk1/DP_IHC/Ki67_pytorchlightning/`) |
+
+#### Dermoscopy / ISIC-2017
+
+| 항목 | 내용 |
+|------|------|
+| 원본 | ISIC-2017 원본 이미지 (Google Sheet 경유 다운로드) |
+| 변환 방법 | stride 128, crop 256×256 sliding window tiling → NPZ |
+| 변환 주체 | 사수님 (별도 스크립트, 이 레포 미포함) |
+
+#### Pathology 보강 데이터 (PanNuke, MoNuSeg 2018)
+
+| 데이터셋 | 변환 방법 |
+|----------|----------|
+| PanNuke | 원본 이미지 → 256×256 resize → NPZ |
+| MoNuSeg 2018 | 1000×1000 원본 → 2×2 crop → 256×256 resize → NPZ |
+
+두 데이터셋 모두 사수님이 변환하여 제공 (별도 스크립트, 이 레포 미포함)
 
 
 ## 4. 데이터 전처리 (학습 시 실시간)
