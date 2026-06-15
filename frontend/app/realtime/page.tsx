@@ -99,25 +99,17 @@ function smoothPolyline(pts: [number, number][], window = 3): [number, number][]
   });
 }
 
-/** quadraticCurveTo 기반 매끄러운 곡선 경로 — 각 점을 제어점으로, 인접 중점을 끝점으로 사용 */
-function drawSmoothCurve(
+/** 윤곽선 점들을 직선으로 잇는 경로 */
+function drawPolylinePath(
   ctx: CanvasRenderingContext2D,
   pts: [number, number][],
   sx: number,
   sy: number
 ) {
   if (pts.length < 3) return;
-  const n = pts.length;
-  const sx0 = (pts[n - 1][0] + pts[0][0]) / 2 * sx;
-  const sy0 = (pts[n - 1][1] + pts[0][1]) / 2 * sy;
-  ctx.moveTo(sx0, sy0);
-  for (let i = 0; i < n; i++) {
-    const curr = pts[i];
-    const next = pts[(i + 1) % n];
-    ctx.quadraticCurveTo(
-      curr[0] * sx, curr[1] * sy,
-      (curr[0] + next[0]) / 2 * sx, (curr[1] + next[1]) / 2 * sy
-    );
+  ctx.moveTo(pts[0][0] * sx, pts[0][1] * sy);
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineTo(pts[i][0] * sx, pts[i][1] * sy);
   }
   ctx.closePath();
 }
@@ -160,14 +152,11 @@ function maskToPolyline(mask: Uint8Array, w: number, h: number): [number, number
   }
 
   if (contour.length < 3) return [];
-  // 1. 이동평균(window=7)으로 픽셀 계단 미세 떨림 제거
-  const smoothed = smoothPolyline(contour, 7);
-  // 2. 다운샘플: ~28개 점이 남도록 (점 수가 적을수록 Chaikin 후 더 둥글어짐)
-  const skip = Math.max(1, Math.floor(smoothed.length / 28));
+  const smoothed = smoothPolyline(contour, 3);
+  const skip = Math.max(1, Math.floor(smoothed.length / 60));
   const sampled: [number, number][] = [];
   for (let i = 0; i < smoothed.length; i += skip) sampled.push(smoothed[i]);
-  // 3. Chaikin 5회로 코너를 곡선화
-  return chaikin(sampled, 5);
+  return chaikin(sampled, 3);
 }
 
 type CellMaskSource = {
@@ -584,7 +573,7 @@ export default function RealtimePage() {
 
     if (previewPolyline && previewPolyline.length >= 3) {
       ctx.beginPath();
-      drawSmoothCurve(ctx, previewPolyline, sx, sy);
+      drawPolylinePath(ctx, previewPolyline, sx, sy);
       ctx.fillStyle = "rgba(16,185,129,0.14)";
       ctx.strokeStyle = "rgba(16,185,129,0.9)";
       ctx.lineWidth = 1.2;
@@ -600,7 +589,7 @@ export default function RealtimePage() {
 
       if (cell.pending || cell.polyline.length < 3) return;
       ctx.beginPath();
-      drawSmoothCurve(ctx, cell.polyline, sx, sy);
+      drawPolylinePath(ctx, cell.polyline, sx, sy);
       const fill =
         cell.kiLabel === "positive" ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)";
       const stroke = cell.kiLabel === "positive" ? "#ef4444" : "#3b82f6";
@@ -619,7 +608,7 @@ export default function RealtimePage() {
 
       if (!hovered.pending && hovered.polyline.length >= 3) {
         ctx.beginPath();
-        drawSmoothCurve(ctx, hovered.polyline, sx, sy);
+        drawPolylinePath(ctx, hovered.polyline, sx, sy);
         ctx.fillStyle = hiFill;
         ctx.strokeStyle = hiStroke;
         ctx.lineWidth = 3;
