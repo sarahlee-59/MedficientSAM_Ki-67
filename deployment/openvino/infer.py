@@ -114,6 +114,7 @@ class Ki67Segmenter:
         points_tile: np.ndarray,
         original_size: tuple[int, int],
         point_labels: Optional[np.ndarray] = None,
+        blur_sigma: float = 0.8,
     ) -> np.ndarray:
         """Decoder pass returning the raw mask **logit** field (no threshold).
 
@@ -122,6 +123,11 @@ class Ki67Segmenter:
         is the cell boundary; keeping the continuous field lets the client trace
         a sub-pixel-accurate contour (marching squares) instead of a staircased
         one from a binarised mask.
+
+        blur_sigma : light Gaussian (in tile px) applied to the logit field before
+        return. Small cells make 1-2 px logit noise show up as needle spikes on
+        the iso-contour; smoothing the continuous field suppresses them at the
+        source while preserving sub-pixel boundary position. 0 disables.
         """
         if points_tile.ndim != 3 or points_tile.shape[-1] != 2:
             raise ValueError(f"points_tile must be (N, K, 2), got {points_tile.shape}")
@@ -153,7 +159,10 @@ class Ki67Segmenter:
         out = np.empty((N, H, W), dtype=np.float32)
         for i in range(N):
             valid = masks_512[i, 0, :new_h, :new_w]
-            out[i] = cv2.resize(valid, (W, H), interpolation=cv2.INTER_LINEAR)
+            resized = cv2.resize(valid, (W, H), interpolation=cv2.INTER_LINEAR)
+            if blur_sigma > 0:
+                resized = cv2.GaussianBlur(resized, (0, 0), sigmaX=blur_sigma)
+            out[i] = resized
         return out
 
     def decode(

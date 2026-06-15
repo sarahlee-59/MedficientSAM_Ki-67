@@ -221,6 +221,42 @@ function marchingSquares(field: Float32Array, w: number, h: number): [number, nu
 
 /** 연속 logit 필드 → 세포 윤곽선. 가장 넓은 0-등고선 루프를 선택하고
  *  RDP로 중복점만 제거(디테일 보존, 스무딩 없음). */
+/** 바늘(스파이크) 점 제거 — 연속 세 점 a-b-c 에서 b가 a→c 선분으로부터
+ *  eps px 이내에 있으면(=직선과 거의 같거나 뒤로 꺾임) b를 제거.
+ *  작은 세포에서 1~2px 노이즈가 좁은 슬릿/바늘로 나타나는 것을 정리한다. */
+function removeSpikePoints(pts: [number, number][], eps = 1.2): [number, number][] {
+  if (pts.length < 4) return pts;
+  let cur = pts.slice();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const next: [number, number][] = [];
+    const n = cur.length;
+    for (let i = 0; i < n; i++) {
+      const a = cur[(i - 1 + n) % n];
+      const b = cur[i];
+      const c = cur[(i + 1) % n];
+      const dx = c[0] - a[0], dy = c[1] - a[1];
+      const len2 = dx * dx + dy * dy;
+      let d2: number;
+      if (len2 < 1e-9) {
+        const ex = b[0] - a[0], ey = b[1] - a[1];
+        d2 = ex * ex + ey * ey;
+      } else {
+        const t = ((b[0] - a[0]) * dx + (b[1] - a[1]) * dy) / len2;
+        const cx = a[0] + t * dx, cy = a[1] + t * dy;
+        const ex = b[0] - cx, ey = b[1] - cy;
+        d2 = ex * ex + ey * ey;
+      }
+      if (d2 <= eps * eps) { changed = true; continue; }
+      next.push(b);
+    }
+    if (next.length < 3) break;
+    cur = next;
+  }
+  return cur;
+}
+
 function logitsToPolyline(field: Float32Array, w: number, h: number): [number, number][] {
   const loops = marchingSquares(field, w, h);
   if (loops.length === 0) return [];
@@ -229,7 +265,8 @@ function logitsToPolyline(field: Float32Array, w: number, h: number): [number, n
     const a = Math.abs(polygonArea(lp));
     if (a > bestArea) { bestArea = a; best = lp; }
   }
-  return simplifyClosed(best, 0.5);
+  const simplified = simplifyClosed(best, 0.5);
+  return removeSpikePoints(simplified, 1.2);
 }
 
 /** 윤곽선 점들을 직선으로 잇는 경로 */
