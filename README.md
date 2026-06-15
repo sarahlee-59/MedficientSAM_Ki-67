@@ -36,8 +36,8 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   ├── distilled-l1-prev-run/       # 04-29~05-01 소규모 데이터 run
 │   ├── distilled-l1-mlflow/         # 05-12~05-13 KILLED
 │   ├── distilled-l1-train_npz/      # 05-13 FAILED
-│   ├── distilled-l1-clean-20260514/ # 05-14~05-17 최종 완주 (배포 미채택)
-│   └── distilled-l1-20260612/       # 06-12~ 진행 중
+│   ├── distilled-l1-clean-20260514/ # 05-14~05-17 완주 (배포 미채택)
+│   └── distilled-l1-20260612/       # 06-12~06-15 완주 (Pathology_new 포함 재학습, 배포 미채택)
 │
 ├── Pathology/                       # 원본 NPZ (절대 좌표 기반, gitignore)
 ├── Pathology_new/                   # 원본 PNG 시각화 (gitignore)
@@ -107,7 +107,8 @@ SAM ViT-B Prompt Encoder + Mask Decoder
 ### 1단계: Knowledge Distillation (배포 미채택)
 
 EfficientViT-L1 image encoder를 SAM ViT-B encoder 출력에 MSE 회귀로 학습.  
-400K steps, loss ▼50.9% 완료했으나 공식 pretrained 기반 fine-tuning 대비 성능이 낮아 최종 배포에서 제외.  
+두 차례 완주 — 05-14 run(400K steps, ▼50.9%) · 06-12 run(Pathology_new 포함, 200K steps, ▼53.3%).  
+공식 pretrained 기반 fine-tuning 대비 성능이 낮아 최종 배포에서 제외.  
 실험 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
 
 ### 2단계: Fine-tuning (Ki-67 핵 데이터) — 배포 채택
@@ -148,7 +149,7 @@ train_npz/
 └── XRay/        (ChestXray, COVID-19-Radiography, COVID-QU-Ex, Pneumothorax)
 ```
 
-NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) uint8, "boxes": (N,4) float32}`
+NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) int32}` (3D 볼륨: imgs=(D,H,W,3), gts=(D,H,W))
 
 ---
 
