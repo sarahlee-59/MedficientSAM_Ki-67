@@ -150,19 +150,8 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 
 ### B. 직접 변환한 것 — CT 5종
 
-CT 원본 데이터는 NIfTI(`.nii.gz`) 형식이라 `pre_CT_MR.py`로 직접 NPZ로 변환했습니다.
-이 레포에 `pre_CT_MR.py`가 포함되어 있으며, 원본은 [bowang-lab/MedSAM LiteMedSAM 브랜치](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM)입니다.
-
-#### 전처리 과정 (스크립트 내부 동작)
-
-```
-① 3D 전체에서 1,000 voxel 미만 객체 제거 (너무 작아서 학습에 불필요)
-② 각 2D 슬라이스에서 100 pixel 미만 객체 제거
-③ 마스크가 비어있는 슬라이스 제거 → 유효 슬라이스만 추출
-④ HU 윈도우 적용: Level=40, Width=400 → 유효 범위 -160~240 HU
-   → 0~255 (uint8) 로 정규화
-⑤ NPZ로 저장: imgs(이미지 볼륨), gts(마스크 볼륨), spacing(voxel 간격)
-```
+CT 원본 데이터는 NIfTI(`.nii.gz`) 형식이라 `pre_CT_MR.py`(레포 루트)로 NPZ로 변환했습니다.
+원본은 [bowang-lab/MedSAM LiteMedSAM 브랜치](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM)입니다.
 
 출력 파일명 형식: `CT_<데이터셋명>_<케이스ID>.npz`
 
