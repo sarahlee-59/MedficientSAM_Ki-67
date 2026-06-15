@@ -331,4 +331,4 @@ batch_size=16이 8 대비 더 안정적인 gradient 추정을 제공하지만, u
 ---
 
 *MLflow Experiment ID: `832243143508473923`* (tracking URI: `DP_MedificientSAM/logs/mlflow/mlruns/`, port 5001)  
-*최종 Git commit: `59504938bb37ab7e2832ede358051976e740efe5`*
+*최종 Git commit: `66aa33f043efae52dc33ac318035f34e65811dbe`*
