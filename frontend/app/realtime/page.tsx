@@ -1914,7 +1914,7 @@ export default function RealtimePage() {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2 flex flex-col justify-between">
+        <div className="flex-1 min-h-0 overflow-hidden px-4 py-2 flex flex-col gap-4">
           {/* 도구 모드 */}
           <div>
             <ToolLabel>도구</ToolLabel>
