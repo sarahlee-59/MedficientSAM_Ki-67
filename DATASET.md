@@ -294,6 +294,7 @@ unzip gts_npz_s128.zip
 | PanNuke | 원본 이미지 → 256×256 resize → NPZ |
 | MoNuSeg 2018 | 1000×1000 원본 → 2×2 crop → 256×256 resize → NPZ |
 
+---
 
 ## 4. 데이터 전처리 (학습 시 실시간)
 
