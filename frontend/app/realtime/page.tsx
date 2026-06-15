@@ -71,32 +71,165 @@ const DRAG_THRESHOLD = 8; // 캔버스 좌표 px — 이거 초과해야 드래�
 const PREVIEW_DEBOUNCE_MS = 80;
 
 
-function chaikin(pts: [number, number][], iterations = 2): [number, number][] {
-  let p = pts;
-  for (let i = 0; i < iterations; i++) {
-    const next: [number, number][] = [];
-    for (let j = 0; j < p.length; j++) {
-      const a = p[j], b = p[(j + 1) % p.length];
-      next.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
-      next.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
-    }
-    p = next;
+/** 점 p에서 선분 a-b까지의 수직거리 제곱 (RDP용) */
+function perpDistSq(p: [number, number], a: [number, number], b: [number, number]): number {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-12) {
+    const ex = p[0] - a[0], ey = p[1] - a[1];
+    return ex * ex + ey * ey;
   }
-  return p;
+  const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2;
+  const cx = a[0] + t * dx, cy = a[1] + t * dy;
+  const ex = p[0] - cx, ey = p[1] - cy;
+  return ex * ex + ey * ey;
 }
 
-// 윤곽선 좌표 이동평균: 픽셀 계단 미세 떨림 제거
-function smoothPolyline(pts: [number, number][], window = 3): [number, number][] {
+function rdpRange(ext: [number, number][], eps2: number, lo: number, hi: number, keep: boolean[]) {
+  if (hi <= lo + 1) return;
+  let idx = -1, maxD = -1;
+  for (let i = lo + 1; i < hi; i++) {
+    const d = perpDistSq(ext[i], ext[lo], ext[hi]);
+    if (d > maxD) { maxD = d; idx = i; }
+  }
+  if (maxD > eps2) {
+    rdpRange(ext, eps2, lo, idx, keep);
+    keep[idx] = true;
+    rdpRange(ext, eps2, idx, hi, keep);
+  }
+}
+
+/** 닫힌 윤곽을 Douglas-Peucker로 단순화 — 직선 구간은 접고 굴곡(디테일)은 보존.
+ *  스무딩/Chaikin과 달리 점을 이동시키지 않으므로 경계 위치가 그대로 유지된다. */
+function simplifyClosed(pts: [number, number][], eps: number): [number, number][] {
   const n = pts.length;
-  const half = Math.floor(window / 2);
-  return pts.map((_, i) => {
-    let sumX = 0, sumY = 0;
-    for (let k = -half; k <= half; k++) {
-      const p = pts[(i + k + n) % n];
-      sumX += p[0]; sumY += p[1];
+  if (n < 5) return pts;
+  // 시작점에서 가장 먼 점을 두 번째 앵커로 → 닫힌 곡선을 두 호로 분할
+  let far = 0, fd = -1;
+  for (let i = 1; i < n; i++) {
+    const dx = pts[i][0] - pts[0][0], dy = pts[i][1] - pts[0][1];
+    const d = dx * dx + dy * dy;
+    if (d > fd) { fd = d; far = i; }
+  }
+  const ext = pts.concat([pts[0]]);          // 마지막→시작 래핑 처리
+  const keep = new Array(n + 1).fill(false);
+  keep[0] = true; keep[far] = true; keep[n] = true;
+  const eps2 = eps * eps;
+  rdpRange(ext, eps2, 0, far, keep);
+  rdpRange(ext, eps2, far, n, keep);
+  const out: [number, number][] = [];
+  for (let i = 0; i < n; i++) if (keep[i]) out.push(pts[i]);
+  return out;
+}
+
+function polygonArea(pts: [number, number][]): number {
+  let a = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    a += (pts[j][0] + pts[i][0]) * (pts[j][1] - pts[i][1]);
+  }
+  return a / 2;
+}
+
+/** iso=0 marching squares — 연속 logit 필드(w×h, row-major)에서 0 등고선을 추출.
+ *  격자 변마다 선형보간으로 교차점을 구해 **서브픽셀** 정밀도의 닫힌 루프들을 반환한다. */
+function marchingSquares(field: Float32Array, w: number, h: number): [number, number][][] {
+  const at = (x: number, y: number) => field[y * w + x];
+  const interp = (va: number, vb: number) => {
+    const d = vb - va;
+    return Math.abs(d) < 1e-9 ? 0.5 : -va / d;   // iso = 0 → t = (0 - va)/(vb - va)
+  };
+  const pt = new Map<string, [number, number]>();
+  const adj = new Map<string, string[]>();
+  const push = (e: string, nbr: string) => {
+    const list = adj.get(e);
+    if (list) list.push(nbr);
+    else adj.set(e, [nbr]);
+  };
+  const connect = (ea: string, pa: [number, number], eb: string, pb: [number, number]) => {
+    pt.set(ea, pa); pt.set(eb, pb);
+    push(ea, eb); push(eb, ea);
+  };
+
+  for (let y = 0; y < h - 1; y++) {
+    for (let x = 0; x < w - 1; x++) {
+      const tl = at(x, y), tr = at(x + 1, y), br = at(x + 1, y + 1), bl = at(x, y + 1);
+      let code = 0;
+      if (tl > 0) code |= 8;
+      if (tr > 0) code |= 4;
+      if (br > 0) code |= 2;
+      if (bl > 0) code |= 1;
+      if (code === 0 || code === 15) continue;
+
+      // 격자 변 = 인접 셀과 공유되는 고유 ID → 교차점이 자동으로 일치해 루프가 닫힌다
+      const T = (): [string, [number, number]] => [`H:${x}:${y}`, [x + interp(tl, tr), y]];
+      const B = (): [string, [number, number]] => [`H:${x}:${y + 1}`, [x + interp(bl, br), y + 1]];
+      const L = (): [string, [number, number]] => [`V:${x}:${y}`, [x, y + interp(tl, bl)]];
+      const R = (): [string, [number, number]] => [`V:${x + 1}:${y}`, [x + 1, y + interp(tr, br)]];
+      const link = (
+        a: () => [string, [number, number]],
+        b: () => [string, [number, number]],
+      ) => { const [ea, pa] = a(), [eb, pb] = b(); connect(ea, pa, eb, pb); };
+
+      switch (code) {
+        case 1: link(L, B); break;
+        case 2: link(B, R); break;
+        case 3: link(L, R); break;
+        case 4: link(T, R); break;
+        case 5: { // saddle (tr, bl 내부)
+          if ((tl + tr + br + bl) / 4 > 0) { link(T, R); link(B, L); }
+          else { link(T, L); link(B, R); }
+          break;
+        }
+        case 6: link(T, B); break;
+        case 7: link(T, L); break;
+        case 8: link(T, L); break;
+        case 9: link(T, B); break;
+        case 10: { // saddle (tl, br 내부)
+          if ((tl + tr + br + bl) / 4 > 0) { link(T, L); link(B, R); }
+          else { link(T, R); link(B, L); }
+          break;
+        }
+        case 11: link(T, R); break;
+        case 12: link(L, R); break;
+        case 13: link(R, B); break;
+        case 14: link(L, B); break;
+      }
     }
-    return [sumX / window, sumY / window] as [number, number];
-  });
+  }
+
+  // 차수≤2 그래프 → 단순 순환 추출
+  const loops: [number, number][][] = [];
+  const visited = new Set<string>();
+  for (const start of adj.keys()) {
+    if (visited.has(start)) continue;
+    const loop: [number, number][] = [];
+    let cur: string | undefined = start;
+    let prev: string | null = null;
+    while (cur && !visited.has(cur)) {
+      visited.add(cur);
+      loop.push(pt.get(cur)!);
+      const ns: string[] = adj.get(cur) ?? [];
+      const next: string | undefined =
+        ns.find((n) => n !== prev && !visited.has(n)) ?? ns.find((n) => n !== prev);
+      prev = cur;
+      cur = next;
+    }
+    if (loop.length >= 3) loops.push(loop);
+  }
+  return loops;
+}
+
+/** 연속 logit 필드 → 세포 윤곽선. 가장 넓은 0-등고선 루프를 선택하고
+ *  RDP로 중복점만 제거(디테일 보존, 스무딩 없음). */
+function logitsToPolyline(field: Float32Array, w: number, h: number): [number, number][] {
+  const loops = marchingSquares(field, w, h);
+  if (loops.length === 0) return [];
+  let best = loops[0], bestArea = -1;
+  for (const lp of loops) {
+    const a = Math.abs(polygonArea(lp));
+    if (a > bestArea) { bestArea = a; best = lp; }
+  }
+  return simplifyClosed(best, 0.5);
 }
 
 /** 윤곽선 점들을 직선으로 잇는 경로 */
@@ -112,51 +245,6 @@ function drawPolylinePath(
     ctx.lineTo(pts[i][0] * sx, pts[i][1] * sy);
   }
   ctx.closePath();
-}
-
-function maskToPolyline(mask: Uint8Array, w: number, h: number): [number, number][] {
-  // 8방향 시계방향: E SE S SW W NW N NE
-  const DX = [ 1,  1,  0, -1, -1, -1,  0,  1];
-  const DY = [ 0,  1,  1,  1,  0, -1, -1, -1];
-  const isFg = (x: number, y: number) =>
-    x >= 0 && x < w && y >= 0 && y < h && mask[y * w + x] > 0;
-
-  // 최상단-최좌단 fg 픽셀 탐색
-  let sx = -1, sy = -1;
-  outer: for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (mask[y * w + x] > 0) { sx = x; sy = y; break outer; }
-    }
-  }
-  if (sx < 0) return [];
-
-  // Moore-neighbor 윤곽선 추적
-  // 시작점은 행에서 좌측이 반드시 bg → backDir = West(4)
-  const contour: [number, number][] = [[sx, sy]];
-  let x = sx, y = sy, backDir = 4;
-
-  for (let step = 0; step < w * h * 2; step++) {
-    let moved = false;
-    for (let i = 1; i <= 8; i++) {
-      const d = (backDir + i) % 8;
-      const nx = x + DX[d], ny = y + DY[d];
-      if (isFg(nx, ny)) {
-        x = nx; y = ny;
-        backDir = (d + 4) % 8;
-        moved = true;
-        break;
-      }
-    }
-    if (!moved || (x === sx && y === sy)) break;
-    contour.push([x, y]);
-  }
-
-  if (contour.length < 3) return [];
-  const smoothed = smoothPolyline(contour, 3);
-  const skip = Math.max(1, Math.floor(smoothed.length / 60));
-  const sampled: [number, number][] = [];
-  for (let i = 0; i < smoothed.length; i += skip) sampled.push(smoothed[i]);
-  return chaikin(sampled, 3);
 }
 
 type CellMaskSource = {
@@ -195,12 +283,6 @@ function buildOccupiedMask(
     mask[i] = rgba[p] > 127 ? 1 : 0;
   }
   return mask;
-}
-
-function subtractOccupiedFromMask(binary: Uint8Array, occupied: Uint8Array) {
-  for (let i = 0; i < binary.length; i++) {
-    if (occupied[i]) binary[i] = 0;
-  }
 }
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────
@@ -393,7 +475,7 @@ export default function RealtimePage() {
     const controller = new AbortController();
     previewAbortRef.current = controller;
 
-    let json: { mask: number[]; width: number; height: number };
+    let json: { logits: number[]; width: number; height: number };
     const sessionId = sessionIdRef.current;
 
     if (sessionId) {
@@ -433,17 +515,19 @@ export default function RealtimePage() {
       json = await res.json();
     }
 
-    const { mask, width: W, height: H } = json;
-    const binary = new Uint8Array(mask);
+    const { logits, width: W, height: H } = json;
+    const field = Float32Array.from(logits as number[]);
+    // 이미 확정된 다른 세포가 점유한 픽셀은 logit을 크게 음수로 깎아 경계에서 제외
+    // (바이너리 마스크 subtract와 동일 효과 — 0-등고선이 점유 영역을 비껴간다)
     const occupied = buildOccupiedMask(
       cellsRef.current,
       inferenceExcludeCellIdRef.current,
       W,
       H,
     );
-    subtractOccupiedFromMask(binary, occupied);
+    for (let i = 0; i < field.length; i++) if (occupied[i]) field[i] = -1000;
 
-    const polyline = maskToPolyline(binary, W, H);
+    const polyline = logitsToPolyline(field, W, H);
     return { polyline, inferenceMs: performance.now() - t0 };
   });
 

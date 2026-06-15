@@ -108,23 +108,20 @@ class Ki67Segmenter:
         pre = self.preprocess(image_rgb_u8)
         return self.encoder({"image": pre})[self._enc_out]
 
-    def decode(
+    def decode_logits(
         self,
         image_embeddings: np.ndarray,
         points_tile: np.ndarray,
         original_size: tuple[int, int],
         point_labels: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        """Decoder pass for N instances × K clicks.
+        """Decoder pass returning the raw mask **logit** field (no threshold).
 
-        image_embeddings : (1, 256, 64, 64) float32 — output of `self.encode()`.
-        points_tile      : (N, K, 2) float32 in tile pixel coords (x, y).
-        original_size    : (H, W) of the source tile, needed to scale points
-                           into the prompt encoder's 1024-pixel space.
-        point_labels     : (N, K) float32, 1=positive, 0=negative, -1=padding.
-                           Default = all-positive ones.
-
-        Returns: (N, H, W) uint8 binary masks at tile resolution.
+        Same arguments as `decode()`. Returns: (N, H, W) float32 mask logits at
+        tile resolution. The 0-level iso-contour (logit == 0, i.e. prob == 0.5)
+        is the cell boundary; keeping the continuous field lets the client trace
+        a sub-pixel-accurate contour (marching squares) instead of a staircased
+        one from a binarised mask.
         """
         if points_tile.ndim != 3 or points_tile.shape[-1] != 2:
             raise ValueError(f"points_tile must be (N, K, 2), got {points_tile.shape}")
@@ -153,12 +150,33 @@ class Ki67Segmenter:
         new_h = int(round(H * IMAGE_ENCODER_INPUT_SIZE / max(H, W)))
         new_w = int(round(W * IMAGE_ENCODER_INPUT_SIZE / max(H, W)))
 
-        out = np.empty((N, H, W), dtype=np.uint8)
+        out = np.empty((N, H, W), dtype=np.float32)
         for i in range(N):
             valid = masks_512[i, 0, :new_h, :new_w]
-            resized = cv2.resize(valid, (W, H), interpolation=cv2.INTER_LINEAR)
-            out[i] = (resized > 0).astype(np.uint8)
+            out[i] = cv2.resize(valid, (W, H), interpolation=cv2.INTER_LINEAR)
         return out
+
+    def decode(
+        self,
+        image_embeddings: np.ndarray,
+        points_tile: np.ndarray,
+        original_size: tuple[int, int],
+        point_labels: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Decoder pass for N instances × K clicks.
+
+        image_embeddings : (1, 256, 64, 64) float32 — output of `self.encode()`.
+        points_tile      : (N, K, 2) float32 in tile pixel coords (x, y).
+        original_size    : (H, W) of the source tile, needed to scale points
+                           into the prompt encoder's 1024-pixel space.
+        point_labels     : (N, K) float32, 1=positive, 0=negative, -1=padding.
+                           Default = all-positive ones.
+
+        Returns: (N, H, W) uint8 binary masks at tile resolution.
+        """
+        return (self.decode_logits(
+            image_embeddings, points_tile, original_size, point_labels
+        ) > 0).astype(np.uint8)
 
     def predict(
         self,

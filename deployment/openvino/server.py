@@ -53,10 +53,15 @@ def _decode_session(session_id: str, points_json: str, labels_json: str) -> dict
     embedding, H, W = _session_cache[session_id]
     pts = np.array(json.loads(points_json), dtype=np.float32)
     lbls = np.array(json.loads(labels_json), dtype=np.float32)
-    masks = get_segmenter().decode(
+    # Return the continuous logit field (not a binarised mask) so the client can
+    # trace a sub-pixel-accurate boundary via marching squares at logit == 0.
+    # Clip + round to shrink the JSON payload — only values straddling 0 affect
+    # the iso-contour crossing, so magnitudes far from 0 are irrelevant.
+    logits = get_segmenter().decode_logits(
         embedding, pts[np.newaxis], (H, W), lbls[np.newaxis]
     )
-    return {"mask": masks[0].flatten().tolist(), "width": W, "height": H}
+    field = np.clip(logits[0], -8.0, 8.0).round(2)
+    return {"logits": field.flatten().tolist(), "width": W, "height": H}
 
 
 @app.post("/encode")
