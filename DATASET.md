@@ -32,7 +32,7 @@
 | Modality | Sub-dataset | 파일 수 | 비고 |
 |----------|-------------|---------|------|
 | CT | AbdomenCT-1K | 1,000 | 스프레드시트 경유 |
-| CT | AMOS22 | 240 | 스프레드시트 경유 |
+| CT | AMOS22 | 200 | 스프레드시트 경유, Tr 분할 CT only (case_id ≤ 500) |
 | CT | COVID-19-20 | 199 | 스프레드시트 경유 |
 | CT | KiTS23 | 489 | 스프레드시트 경유 |
 | CT | TotalSegmentator | 1,174 | 스프레드시트 경유, 전신 117개 부위 커버 |
@@ -150,41 +150,94 @@ data["gts"]   # shape: (H, W) int32     — instance segmentation 마스크
 
 ### B. 직접 변환한 것 — CT 5종
 
-CT 원본 데이터는 NIfTI(`.nii.gz`) 형식이라 `pre_CT_MR.py`(레포 루트)로 NPZ로 변환했습니다.
+CT 원본 데이터는 NIfTI(`.nii.gz`) 형식이라 `CT/pre_CT_MR.py`로 NPZ·NPY로 변환했습니다.
 원본은 [bowang-lab/MedSAM LiteMedSAM 브랜치](https://github.com/bowang-lab/MedSAM/tree/LiteMedSAM)입니다.
-
-출력 파일명 형식: `CT_<데이터셋명>_<케이스ID>.npz`
 
 #### 의존성 설치
 
 ```bash
-pip install connected-components-3d SimpleITK
+pip install connected-components-3d SimpleITK scikit-image tqdm
 ```
+
+#### 스크립트 사용법
+
+CLI 인자가 없으므로 파일 상단 변수를 직접 수정한 뒤 실행합니다.
+
+```python
+# pre_CT_MR.py 상단 설정 변수
+modality = "CT"
+anatomy  = "AbdomenCT-1K"       # 데이터셋명 — 출력 prefix에 사용됨
+img_name_suffix = "_0000.nii.gz" # 이미지 파일 suffix (데이터셋마다 다름)
+gt_name_suffix  = ".nii.gz"      # 라벨 파일 suffix
+
+nii_path = "data/FLARE22Train/images"  # 이미지 폴더 경로
+gt_path  = "data/FLARE22Train/labels"  # 라벨 폴더 경로
+# npy_path는 자동 설정: "data/npy/CT_<anatomy>"
+
+# CT window 설정
+WINDOW_LEVEL = 40   # 복부 기본값
+WINDOW_WIDTH  = 400
+
+# 제외할 label id (기본: 12=십이지장, bounding box로 지정하기 어려워 제외)
+remove_label_ids = [12]
+```
+
+```bash
+python3 pre_CT_MR.py
+```
+
+#### 출력 파일 구조
+
+```
+data/npy/CT_<anatomy>/
+├── CT_<anatomy>_<케이스ID>.npz            # 볼륨 단위 (imgs, gts, spacing)
+├── CT_<anatomy>_<케이스ID>_img.nii.gz     # 산티체크용 — 확인 후 삭제 가능
+├── CT_<anatomy>_<케이스ID>_gt.nii.gz      # 산티체크용 — 확인 후 삭제 가능
+├── imgs/
+│   └── CT_<anatomy>_<케이스ID>-000.npy   # 슬라이스별 (H, W, 3) float64 [0, 1]
+└── gts/
+    └── CT_<anatomy>_<케이스ID>-000.npy   # 슬라이스별 (H, W) uint8
+```
+
+NPZ 키:
+
+| 키 | shape | dtype | 설명 |
+|----|-------|-------|------|
+| `imgs` | (D, H, W) | uint8 | CT windowing + [0, 255] 정규화, 비제로 슬라이스만 |
+| `gts` | (D, H, W) | uint8 | instance label, 비제로 슬라이스만 |
+| `spacing` | tuple | float | voxel spacing (sitk 기준) |
+
+변환된 결과는 `data/npy/CT_<anatomy>/` 에 저장되며, 이후 `train_npz/CT/<데이터셋명>/` 으로 이동했습니다.
 
 ---
 
 #### CT / AbdomenCT-1K (1,000개)
 
-```bash
-python3 pre_CT_MR.py \
-  -modality CT -anatomy AbdomenCT-1K \
-  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
-  -img_path <AbdomenCT-1K 이미지 폴더> \
-  -gt_path  <AbdomenCT-1K 라벨 폴더> \
-  -output_path /mnt/Disk1/sylee/npz_output \
-  -num_workers 8
+원본이 `AbdomenCT-1K-ImagePart1~3/` 세 파트로 분할되어 있고, 각 파트 내부에 중첩 디렉토리 구조(`PartN/PartN/*.nii.gz`)를 가짐. GT 마스크는 별도 `Mask/` 폴더에 통합 위치.
+
+```python
+anatomy         = "AbdomenCT-1K"
+img_name_suffix = "_0000.nii.gz"
+gt_name_suffix  = ".nii.gz"
+nii_path = "<AbdomenCT-1K 이미지 폴더>"  # Part1~3 통합 후 경로
+gt_path  = "<AbdomenCT-1K 라벨 폴더>"   # Mask/ 폴더
+# remove_label_ids = [12]  # duodenum 제거 (GT 품질 낮음)
 ```
 
-#### CT / AMOS22 (240개)
+#### CT / AMOS22 (200개)
 
-```bash
-python3 pre_CT_MR.py \
-  -modality CT -anatomy AMOS22 \
-  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
-  -img_path <AMOS22 이미지 폴더> \
-  -gt_path  <AMOS22 라벨 폴더> \
-  -output_path /mnt/Disk1/sylee/npz_output \
-  -num_workers 8
+CT(case_id ≤ 500)와 MRI(case_id > 500)가 혼합된 데이터셋. **Tr 분할 CT만 사용** (Va 분할은 GT 비공개).
+- CT: case_id 1~410 (결번 있음) → 200개
+- MRI: case_id 507~600 (결번 있음, 501~506 없음) → 40개
+
+> **이력**: 구버전 방식(상단 변수 직접 수정)으로 전처리 시 MRI 필터링이 누락되어 `train_npz/CT/AMOS22/`에 CT 200개 + MRI 40개 = 240개가 생성됨. MRI 케이스(`amos_0507`~`amos_0600`, 40개) 수동 삭제 완료 → 현재 200개.
+
+```python
+anatomy         = "AMOS22"
+img_name_suffix = ".nii.gz"
+gt_name_suffix  = ".nii.gz"
+nii_path = "<AMOS22 imagesTr 폴더>"  # CT only (case_id <= 500)
+gt_path  = "<AMOS22 labelsTr 폴더>"
 ```
 
 #### CT / COVID-19-20 (199개)
@@ -202,19 +255,22 @@ for f in *_seg.nii.gz; do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_
 cd /mnt/Disk1/sylee/COVID-19-20_v2/Validation
 for f in *_ct.nii.gz;  do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_organized/images/${f%_ct.nii.gz}.nii.gz";  done
 for f in *_seg.nii.gz; do ln -sf "$(realpath $f)" "/mnt/Disk1/sylee/COVID-19-20_organized/labels/${f%_seg.nii.gz}.nii.gz"; done
+```
 
-# 2단계: NPZ 변환
-cd /mnt/Disk1/sylee
-python3 pre_CT_MR.py \
-  -modality CT -anatomy COVID-19-20 \
-  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
-  -img_path /mnt/Disk1/sylee/COVID-19-20_organized/images \
-  -gt_path  /mnt/Disk1/sylee/COVID-19-20_organized/labels \
-  -output_path /mnt/Disk1/sylee/npz_output \
-  -num_workers 8
+```python
+# 2단계: 변수 설정 후 실행
+anatomy         = "COVID-19-20"
+img_name_suffix = ".nii.gz"
+gt_name_suffix  = ".nii.gz"
+nii_path = "/mnt/Disk1/sylee/COVID-19-20_organized/images"
+gt_path  = "/mnt/Disk1/sylee/COVID-19-20_organized/labels"
+# CT window: WINDOW_LEVEL = -500, WINDOW_WIDTH = 1500  (lung window)
+# 폐 조직 HU 범위(-1000~-500)를 포함하도록 넓은 폭 설정
 ```
 
 #### CT / KiTS23 (489개)
+
+> bash 히스토리 확인됨
 
 원본이 `case_00001/imaging.nii.gz` 형태의 케이스별 폴더라 먼저 정리했습니다.
 
@@ -226,31 +282,87 @@ for case_dir in /mnt/Disk1/sylee/kits23/dataset/case_*/; do
   [ -f "${case_dir}imaging.nii.gz" ]      && ln -sf "$(realpath ${case_dir}imaging.nii.gz)"      "kits23_organized/images/${n}.nii.gz"
   [ -f "${case_dir}segmentation.nii.gz" ] && ln -sf "$(realpath ${case_dir}segmentation.nii.gz)" "kits23_organized/labels/${n}.nii.gz"
 done
+```
 
-# 2단계: NPZ 변환
-cd /mnt/Disk1/sylee
-python3 pre_CT_MR.py \
-  -modality CT -anatomy KiTS23 \
-  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
-  -img_path /mnt/Disk1/sylee/kits23_organized/images \
-  -gt_path  /mnt/Disk1/sylee/kits23_organized/labels \
-  -output_path /mnt/Disk1/sylee/npz_output \
-  -num_workers 8
+```python
+# 2단계: pre_CT_MR.py 상단 변수 수정
+anatomy         = "KiTS23"
+img_name_suffix = ".nii.gz"
+gt_name_suffix  = ".nii.gz"
+nii_path = "/mnt/Disk1/sylee/kits23_organized/images"
+gt_path  = "/mnt/Disk1/sylee/kits23_organized/labels"
+# CT window: WINDOW_LEVEL = 100, WINDOW_WIDTH = 400  (kidney window)
+# 신장 실질 HU 범위(20~80)와 종양 조영 증강 최적화
+```
+
+```bash
+python3 pre_CT_MR.py
 ```
 
 #### CT / TotalSegmentator (1,174개)
 
-```bash
-python3 pre_CT_MR.py \
-  -modality CT -anatomy TotalSegmentator \
-  -img_name_suffix .nii.gz -gt_name_suffix .nii.gz \
-  -img_path <TotalSegmentator 이미지 폴더> \
-  -gt_path  <TotalSegmentator 라벨 폴더> \
-  -output_path /mnt/Disk1/sylee/npz_output \
-  -num_workers 8
+원본이 장기별 개별 binary 마스크 파일(`segmentations/spleen.nii.gz` 등 17개)로 분리 저장되어 있어, 전처리 전에 **단일 multi-label 파일로 병합**이 필요하다.
+
+| label ID | 장기 | label ID | 장기 |
+|----------|------|----------|------|
+| 1 | spleen | 2 | kidney_right |
+| 3 | kidney_left | 4 | gallbladder |
+| 5 | liver | 6 | stomach |
+| 7 | aorta | 8 | inferior_vena_cava |
+| 9 | pancreas | 10 | adrenal_gland_right |
+| 11 | adrenal_gland_left | 12 | duodenum |
+| 13 | colon | 14 | small_bowel |
+| 15 | urinary_bladder | 16 | portal_vein_and_splenic_vein |
+| 17 | esophagus | | |
+
+전체 1,228 케이스 중 54건은 GT가 전부 0(유효 장기 없음)으로 NPZ 생성 시 자동 제외 → 유효 1,174개.
+
+```python
+anatomy         = "TotalSegmentator"
+img_name_suffix = ".nii.gz"
+gt_name_suffix  = ".nii.gz"
+nii_path = "<TotalSegmentator 이미지 폴더>"  # 병합 후 labels/ 경로
+gt_path  = "<TotalSegmentator 라벨 폴더>"
 ```
 
-변환된 NPZ는 `npz_output/MedSAM_train/CT_<데이터셋명>/` 에 저장되며, 이후 `train_npz/CT/<데이터셋명>/` 으로 이동했습니다.
+#### CT 전처리 재현 파이프라인 (setup_datasets.py + run_preprocessing.sh)
+
+위 각 데이터셋 섹션의 방법은 개별 실행 기록 기준이다. 전체를 일괄 재현하려면 아래 파이프라인을 사용한다. 관련 스크립트는 모두 `CT/` 폴더에 위치한다.
+
+```
+raw_ver/          원본 NIfTI (데이터셋마다 폴더 구조 상이)
+     │
+     │  setup_datasets.py
+     │  ① 데이터셋별 symlink 생성 → refine_ver/ (통일된 images/labels 구조)
+     │  ② TotalSegmentator 장기별 binary 마스크 → single multi-label 병합
+     │  ③ 누락 NPZ 증분 생성
+     ▼
+refine_ver/       images/ + labels/ 통일 구조
+     │
+     │  run_preprocessing.sh
+     │  └─ pre_CT_MR.py (데이터셋별 CT window 파라미터로 순차 호출)
+     ▼
+train_npz/CT/     학습용 NPZ
+```
+
+```bash
+# 1단계: 원본 데이터 경로
+# RAW = /mnt/Disk1/sylee/CT/raw_ver/
+# 구조: AbdomenCT-1K-ImagePart1~3/, Mask/, amos22/, COVID-19-20_v2/,
+#       kits23/, Totalsegmentator_dataset_v201/
+
+cd /mnt/Disk1/sylee/CT
+python3 setup_datasets.py   # symlink 정리 + TotalSegmentator 병합 + 증분 NPZ
+bash run_preprocessing.sh   # 전체 5종 NPZ 재생성 (필요 시)
+```
+
+| 데이터셋 | CT Window | 비고 |
+|---------|-----------|------|
+| AbdomenCT-1K | WL=40, WW=400 (soft tissue) | duodenum(12) 제거 |
+| AMOS22 | WL=40, WW=400 (soft tissue) | Tr CT only (case_id ≤ 500), 200개 |
+| COVID-19 | WL=−500, WW=1500 (lung) | 폐 감염 병변 강조 |
+| KiTS23 | WL=100, WW=400 (kidney) | 신장 실질/종양 최적화 |
+| TotalSegmentator | WL=40, WW=400 (soft tissue) | 17개 장기 multi-label |
 
 ---
 
