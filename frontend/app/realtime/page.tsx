@@ -1692,7 +1692,7 @@ export default function RealtimePage() {
 
         {/* 결과 패널 (캔버스 하단) */}
         {naturalSize.w > 0 && (
-          <div className="shrink-0 flex flex-col bg-gray-900/60" style={{ height: 240 }}>
+          <div className="shrink-0 flex flex-col bg-gray-900/60" style={{ height: 284 }}>
             {/* 섹션 타이틀 바 — 삭제 모드일 때 안내로 전환 (높이 유지 → 캔버스 크기 불변) */}
             {activeTool === "cursor" && editingCellId === null ? (
               <div className="shrink-0 border-t border-red-800/60 h-9 px-5 flex items-center gap-3 bg-red-900/70 text-red-200 whitespace-nowrap overflow-hidden">
@@ -1725,7 +1725,7 @@ export default function RealtimePage() {
                 )}
               </div>
             )}
-            <div className="flex-1 min-h-0 px-5 py-3 flex gap-6 items-start overflow-x-auto">
+            <div className="flex-1 min-h-0 px-5 py-3 flex gap-6 items-start overflow-x-auto overflow-y-hidden">
 
               {/* 추론 시간 */}
               <div className="min-w-[160px] shrink-0">
