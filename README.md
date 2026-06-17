@@ -15,6 +15,7 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ├── ki67-frontend.service             # systemd 서비스 유닛 — Next.js (포트 3000)
 ├── ki67-inference.service            # systemd 서비스 유닛 — FastAPI (포트 8000)
 ├── .env.example                      # 환경 변수 템플릿
+├── CT/                               # CT 전처리 스크립트 (raw_ver → train_npz/CT 변환, DATASET.md 참고)
 │
 ├── DP_MedificientSAM/               # 학습 프레임워크 (git submodule — 공식 upstream)
 │   ├── src/                         # 학습 코드 (train.py, export_onnx.py, models/ 등)
