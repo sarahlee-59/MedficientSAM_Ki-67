@@ -7,72 +7,71 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 
 ## 레포지토리 구조
 
+> 아래는 GitHub 레포지토리에 실제로 올라가 있는 파일만 기준으로 정리한 구조입니다.
+> 가중치·데이터셋·모델 바이너리(.pth/.onnx/.bin) 등 용량이 큰 산출물은 .gitignore 처리되어 있어 제외했습니다.
+
 ```
 .
+├── README.md                         # 프로젝트 개요 및 레포지토리 구조
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # Distillation 실험 로그 및 학습 결과
 ├── SERVICE_GUIDE.md                  # 웹 서비스 실행 방법 및 UI 사용 가이드
 ├── ki67-frontend.service             # systemd 서비스 유닛 — Next.js (포트 3000)
 ├── ki67-inference.service            # systemd 서비스 유닛 — FastAPI (포트 8000)
+├── deploy.sh                         # 배포 스크립트
 ├── .env.example                      # 환경 변수 템플릿
+│
 ├── CT/                               # CT 전처리 스크립트 (raw_ver → train_npz/CT 변환, DATASET.md 참고)
+│   ├── PREPROCESSING_PIPELINE.md
+│   ├── pre_CT_MR.py
+│   ├── run_preprocessing.sh
+│   └── setup_datasets.py
 │
-├── DP_MedificientSAM/               # 학습 프레임워크 (git submodule — 공식 upstream)
-│   ├── src/                         # 학습 코드 (train.py, export_onnx.py, models/ 등)
-│   ├── configs/                     # Hydra 설정 (upstream 원본)
-│   ├── train_scripts/               # 학습 실행 스크립트 (.sh, upstream 원본)
-│   ├── .env                         # 학습 환경 변수 (CVPR2024_MEDSAM_DATA_DIR)
-│   ├── weights -> ../weights/        # 심볼릭 링크 — 공식 가중치
-│   └── experiment_weights -> ../experiment_weights/  # 심볼릭 링크 — 실험 체크포인트
+├── DP_MedificientSAM/                # 학습 프레임워크 (git submodule — github.com/infinittAI/DP_MedificientSAM)
 │
-├── src/                             # Ki-67 프로젝트용 학습 코드 (submodule 기반 커스터마이즈)
-├── configs/                         # Ki-67 프로젝트용 Hydra 설정 (MLflow·ki67_data_dir 반영)
+├── src/                              # Ki-67 프로젝트용 학습 코드 (submodule 기반 커스터마이즈)
+│   ├── data/                         # Dataset / DataModule
+│   ├── losses/                       # SAMLoss, IoULoss
+│   ├── metrics/                      # generalized_dice
+│   ├── models/                       # base_sam, distill/finetune module, efficientvit, lite_medsam, onnx, segment_anything
+│   ├── schedulers/
+│   ├── utils/
+│   ├── train.py / infer.py / export_onnx.py / export_torch.py
 │
-├── weights/                         # 공식 드라이브 다운로드 가중치 (gitignore)
-│   ├── medsam/                      # medsam_vit_b.pth (teacher), lite_medsam.pth
-│   ├── distilled-l0/l1/l2/          # 공식 distilled 가중치
-│   └── finetuned-l*/                # 공식 pretrained 기반 fine-tuning (배포 모델 포함)
+├── configs/                          # Ki-67 프로젝트용 Hydra 설정 (MLflow·ki67_data_dir 반영)
+│   ├── callbacks/ data/ debug/ experiment/ extras/ hydra/ logger/ model/ paths/ trainer/
+│   └── train.yaml / infer.yaml / export_onnx.yaml / export_torch.yaml
 │
-├── experiment_weights/              # 직접 실험으로 생성된 체크포인트 (gitignore)
-│   ├── distilled-l1-prev-run/       # 04-29~05-01 소규모 데이터 run
-│   ├── distilled-l1-mlflow/         # 05-12~05-13 KILLED
-│   ├── distilled-l1-train_npz/      # 05-13 FAILED
-│   ├── distilled-l1-clean-20260514/ # 05-14~05-17 완주 (배포 미채택)
-│   └── distilled-l1-20260612/       # 06-12~06-15 완주 (Pathology_new 포함 재학습, 배포 미채택)
+├── deployment/                       # 추론 배포 패키지 (모델 바이너리는 gitignore, 코드만 추적)
+│   ├── openvino/                     # OpenVINO FP32 — 현재 운영 중
+│   │   ├── encoder.xml / decoder.xml # IR 구조 정의 (.bin 가중치는 gitignore)
+│   │   ├── infer.py                  # Ki67Segmenter 클래스 (openvino)
+│   │   ├── server.py                 # FastAPI 추론 서버
+│   │   ├── example.py                # 단독 실행 예시
+│   │   └── requirements.txt
+│   └── onnx/                         # ONNX INT8 — 참고용 (.onnx 가중치는 gitignore)
+│       ├── infer.py                  # Ki67Segmenter 클래스 (onnxruntime)
+│       ├── server.py                 # FastAPI 추론 서버
+│       └── example.py
 │
-├── Pathology/                       # 원본 NPZ (절대 좌표 기반, gitignore)
-├── Pathology_new/                   # 원본 PNG 시각화 (gitignore)
-│
-├── deployment/                      # 추론 배포 패키지
-│   ├── openvino/                    # OpenVINO FP32 — 현재 운영 중
-│   │   ├── encoder.xml / .bin       # FP32 인코더 IR ~167MB
-│   │   ├── decoder.xml / .bin       # FP32 디코더 IR ~19MB
-│   │   ├── infer.py                 # Ki67Segmenter 클래스 (openvino)
-│   │   ├── server.py                # FastAPI 추론 서버
-│   │   └── example.py               # 단독 실행 예시
-│   └── onnx/                        # ONNX INT8 — 참고용
-│       ├── encoder.quantized.onnx   # INT8 인코더 ~44MB
-│       ├── decoder.quantized.onnx   # INT8 디코더 ~9MB
-│       ├── infer.py                 # Ki67Segmenter 클래스 (onnxruntime)
-│       └── server.py                # FastAPI 추론 서버
-├── frontend/                        # Next.js 웹 서비스 (포트 3000)
+├── frontend/                         # Next.js 웹 서비스 (포트 3000)
 │   ├── app/
-│   │   ├── api/encode/              # FastAPI 프록시 — encode 전용
-│   │   ├── api/decode/              # FastAPI 프록시 — decode 전용
-│   │   ├── api/infer/               # FastAPI 프록시 — encode+decode 통합
-│   │   ├── realtime/                # 실시간 세그멘테이션 UI
-│   │   │   ├── page.tsx             # 메인 UI 컴포넌트
-│   │   │   ├── types.ts             # 공유 타입 정의
-│   │   │   └── utils/segmentation.ts # 마스크 → 윤곽선 변환
-│   │   └── benchmark/               # 추론 속도 벤치마크 페이지
-│   └── public/samples/              # 샘플 이미지 (bench1~5, sample1)
-├── benchmark/                       # 추론 속도 벤치마크
-│   ├── benchmark_speed.py           # ONNX-INT8 vs OpenVINO-FP32 측정
-│   ├── benchmark_results.md         # 결과 요약
-│   └── results/                     # 실측 JSON (ki67_hybrid_bench1~5)
+│   │   ├── api/encode/ , api/decode/ , api/infer/  # FastAPI 프록시
+│   │   ├── realtime/                 # 실시간 세그멘테이션 UI (page.tsx, types.ts, utils/segmentation.ts)
+│   │   ├── benchmark/                # 추론 속도 벤치마크 페이지
+│   │   ├── page.tsx / layout.tsx / globals.css
+│   ├── public/samples/               # 샘플 이미지 (bench1~5, benchmark, sample1)
+│   ├── package.json / tsconfig.json / next.config.ts / eslint.config.mjs / postcss.config.mjs
+│   └── README.md / AGENTS.md / CLAUDE.md
 │
-└── train_npz/                       # 학습 데이터 (gitignore, DATASET.md 참고)
+└── benchmark/                        # 추론 속도 벤치마크
+    ├── benchmark_speed.py            # ONNX-INT8 vs OpenVINO-FP32 측정
+    ├── benchmark_results.md          # 결과 요약
+    ├── images/                       # 벤치마크용 입력 이미지
+    └── results/                      # 실측 JSON (ki67_hybrid_bench1~5)
 ```
+
+> 다음 디렉터리는 GitHub에 올라가지 않습니다(.gitignore): `weights/`, `experiment_weights/`, `Pathology/`, `Pathology_new/`, `train_npz/` — 자세한 내용은 [DATASET.md](DATASET.md) 참고.
 
 ---
 
