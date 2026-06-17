@@ -23,7 +23,7 @@ Ki-67 세그멘테이션 서비스의 Next.js 프론트엔드입니다.
 | `app/api/decode/route.ts` | FastAPI `/decode` 프록시 |
 | `app/api/infer/route.ts` | FastAPI `/infer` 프록시 (fallback) |
 | `app/benchmark/page.tsx` | 브라우저 ONNX 추론 속도 벤치마크 (onnxruntime-web) |
-| `public/models/` | ONNX INT8 모델 파일 — benchmark 페이지 전용 |
+| `public/models/` | ONNX INT8 모델 파일 — benchmark 페이지 전용. `.gitignore` 처리되어 있어 저장소에는 없음. 사용 전 `deployment/onnx/encoder.quantized.onnx`, `decoder.quantized.onnx`를 이 경로로 직접 복사해야 함 |
 
 ## 개발 모드
 

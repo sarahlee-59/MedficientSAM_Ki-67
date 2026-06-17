@@ -64,7 +64,7 @@
 | PET | autoPET | 345 | |
 | US | Breast-Ultrasound, hc18 | 1,646 | |
 | XRay | Chest X-ray, COVID 관련 4종 | 22,178 | |
-| **합계** | | **70,864** | |
+| **합계** | | **70,824** | |
 
 ### NPZ 파일은 어떻게 생겼나
 

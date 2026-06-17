@@ -92,7 +92,7 @@ SAM ViT-B Prompt Encoder + Mask Decoder
 - **Decoder**: SAM ViT-B의 prompt encoder + mask decoder 그대로 사용 (point-prompt only)
 - **배포 크기**: ~53MB (INT8 동적 양자화, PyTorch 불필요)
 
-### 성능 (Ki-67 holdout 818 tiles, n=100, seed=42)
+### 성능 (Ki-67 holdout 819 tiles, n=100, seed=42)
 
 | 프롬프트 | Dice |
 |----------|------|
@@ -184,8 +184,8 @@ FastAPI 추론 서버 (포트 8000, OpenVINO FP32)
 
 | 백엔드 | encode | decode (4셀) | e2e |
 |--------|-------:|-------------:|----:|
-| ONNX INT8 | 545 ms | 92 ms | 637 ms |
-| **OpenVINO FP32** | **75 ms** | **50 ms** | **125 ms** |
+| ONNX INT8 | 570 ms | 97 ms | 667 ms |
+| **OpenVINO FP32** | **74 ms** | **49 ms** | **123 ms** |
 
 ---
 
