@@ -41,7 +41,7 @@ type SegmentResult = {
 
 type SegmentFn = (image: HTMLImageElement, points: Point[]) => Promise<SegmentResult>;
 
-const MODEL_NAME = "e11_holdout_int8_server";
+const MODEL_NAME = "e11_holdout_openvino_fp32_server";
 const INFER_URL = "/api/infer";
 const ENCODE_URL = "/api/encode";
 const DECODE_URL = "/api/decode";
@@ -1356,6 +1356,44 @@ export default function RealtimePage() {
     URL.revokeObjectURL(url);
   }
 
+  function savePng() {
+    const img = imgRef.current;
+    if (confirmedCount === 0 || !img || !naturalSize.w) {
+      setError("저장할 확정된 세포가 없습니다.");
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = naturalSize.w;
+    canvas.height = naturalSize.h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    cells.forEach((cell) => {
+      if (cell.pending || cell.polyline.length < 3) return;
+      ctx.beginPath();
+      drawPolylinePath(ctx, cell.polyline, 1, 1);
+      const fill = cell.kiLabel === "positive" ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)";
+      const stroke = cell.kiLabel === "positive" ? "#ef4444" : "#3b82f6";
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+
+    const base = imageFile?.name?.replace(/\.[^.]+$/, "") ?? `ki67_${Date.now()}`;
+    const fileName = `ki67_hybrid_${base}.png`;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  }
+
   // ── 파생 ──────────────────────────────────────────────────────────────────
   const labelMissing = pendingKiLabel === null;
 
@@ -1885,6 +1923,13 @@ export default function RealtimePage() {
                   className="w-full py-2 rounded text-xs font-medium bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition"
                 >
                   JSON 저장 {confirmedCount > 0 && <span className="opacity-80">({confirmedCount})</span>}
+                </button>
+                <button
+                  onClick={savePng}
+                  disabled={confirmedCount === 0}
+                  className="w-full py-2 rounded text-xs font-medium bg-sky-700 hover:bg-sky-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition"
+                >
+                  PNG 저장 {confirmedCount > 0 && <span className="opacity-80">({confirmedCount})</span>}
                 </button>
               </div>
 
