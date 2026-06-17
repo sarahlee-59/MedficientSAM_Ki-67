@@ -5,23 +5,6 @@ distillation 기반 fine-tuning은 성능 불량으로 채택되지 않았으며
 
 ---
 
-## 명명 규칙 (Naming Convention)
-
-run 이름·체크포인트 디렉토리 끝에 붙는 날짜는 **학습을 처음 시작한 날(start date)** 기준으로 통일한다.
-
-- 학습 완료일·가중치 추출일·배포일이 아니라 **시작일**을 사용한다.
-- 이유: 학습이 며칠에 걸쳐 진행되어 종료일을 미리 알 수 없고, 디렉토리는 학습 시작 시점에 생성되기 때문.
-
-| 디렉토리 / Run | 끝 날짜 = 학습 시작일 | 첫 체크포인트(step_010000) | 완료일 |
-|---|---|---|---|
-| `distilled-l1-clean-20260514` | 2026-05-14 | 05-14 11:46 | 05-17 |
-| `distilled-l1-20260612` | 2026-06-12 | 06-12 17:30 | 06-15 |
-
-> 참고: 학습 종료 후 파생된 파일(예: 인코더만 추출한 `student_encoder.pt`)의 생성일은
-> 디렉토리 날짜와 다를 수 있다. (`distilled-l1-clean-20260514/student_encoder.pt` → 05-18 추출)
-
----
-
 ## 배포 파이프라인
 
 ```
@@ -323,7 +306,8 @@ batch_size=16이 8 대비 더 안정적인 gradient 추정을 제공하지만, u
 
 ## 재현 주의사항
 
-1. **Pathology_new 사용 전 무결성 검증 필수**: 2026-05-13 당시 `train_npz/Pathology_new/gts_npz_s128/` 내 다수 파일 누락으로 Epoch 2에서 FileNotFoundError 발생. 2026-06-12 재학습 시 19,062개 전량 검증 완료 후 포함. 재현 시 `numpy.load` + key 확인으로 사전 검증 권장.
+1. **Pathology_new 사용 전 무결성 검증
+ 필수**: 2026-05-13 당시 `train_npz/Pathology_new/gts_npz_s128/` 내 다수 파일 누락으로 Epoch 2에서 FileNotFoundError 발생. 2026-06-12 재학습 시 19,062개 전량 검증 완료 후 포함. 재현 시 `numpy.load` + key 확인으로 사전 검증 권장.
 2. **batch_size 선택**: 05-14 run은 batch_size=8 (50,000 steps/epoch), 06-12 run은 batch_size=16 (25,000 steps/epoch) — 둘 다 성공. GPU 메모리(H100 80GB)에서 batch_size=16 정상 동작 확인됨.
 3. **ckpt_path=None**: 설정이 다른 run의 checkpoint에서 resume하면 데이터 분포 불일치로 학습 불안정. 항상 scratch로 시작 권장.
 4. **albumentations 버전**: 2.0.8에서 `A.TransformType` 제거됨. `A.BasicTransform`으로 교체 완료 (`medsam_dataset.py:68`).
@@ -331,4 +315,4 @@ batch_size=16이 8 대비 더 안정적인 gradient 추정을 제공하지만, u
 ---
 
 *MLflow Experiment ID: `832243143508473923`* (tracking URI: `DP_MedificientSAM/logs/mlflow/mlruns/`, port 5001)  
-*최종 Git commit: `66aa33f043efae52dc33ac318035f34e65811dbe`*
+*최종 Git commit: `59504938bb37ab7e2832ede358051976e740efe5`*
