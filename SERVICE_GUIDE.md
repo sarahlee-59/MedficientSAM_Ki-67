@@ -163,7 +163,7 @@ http://10.10.40.194:3000/realtime
 | 항목 | 내용 |
 |------|------|
 | 추론 엔진 | OpenVINO FP32 (Intel CPU) |
-| 추론 성능 | e2e ~123 ms (Intel CPU, 256×256) — 상세 벤치마크는 [`benchmark/benchmark_results.md`](benchmark/benchmark_results.md) 참고 |
+| 추론 성능 | e2e ~123 ms (Intel CPU, 256×256) — 상세 벤치마크는 [`benchmark/speed/benchmark_results.md`](benchmark/speed/benchmark_results.md) 참고 |
 | 임베딩 캐시 | 같은 이미지에서 반복 클릭 시 인코더 재실행 없음 |
 | 프론트엔드 | Next.js (포트 3000) |
 | 추론 서버 | FastAPI + OpenVINO (포트 8000) |

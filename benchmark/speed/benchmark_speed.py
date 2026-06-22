@@ -17,7 +17,7 @@ import numpy as np
 # ── 경로 설정 ──────────────────────────────────────────────────────────────
 BASE       = Path("/mnt/Disk1/sylee")
 IMAGE_DIR  = BASE / "frontend/public/samples"
-JSON_DIR   = BASE / "benchmark/results"
+JSON_DIR   = BASE / "benchmark/speed/results"
 ONNX_DIR   = BASE / "deployment"
 OV_DIR     = BASE / "deployment/openvino"
 

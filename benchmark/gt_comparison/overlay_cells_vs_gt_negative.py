@@ -1,4 +1,4 @@
-"""bench1.png == pathology npz 원본 이미지. (4).json의 cell 1~4 polyline 결과를
+"""bench1.png == pathology npz 원본 이미지. negative.json의 cell 1~4 polyline 결과를
 각각 매칭된 실제 GT 인스턴스와 겹쳐서 시각화.
 """
 import json
@@ -7,15 +7,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-JSON_PATH = Path('/mnt/Disk1/sylee/benchmark/new/ki67_hybrid_bench1 (4).json')
+JSON_PATH = Path('/mnt/Disk1/sylee/benchmark/gt_comparison/cells/ki67_hybrid_bench1_negative.json')
 IMAGE_PATH = Path('/mnt/Disk1/sylee/frontend/public/samples/bench1.png')
 GT_PATH = Path(
     "/mnt/Disk1/sylee/train_npz/Pathology_new/gts_npz_s128/2D_S26-02873,A3,FDC00099,37255_3810_1_78609_72394_802_807_r00_c00.npz"
 )
-OUT_DIR = Path('/mnt/Disk1/sylee/benchmark/new/overlays_gt')
+OUT_DIR = Path('/mnt/Disk1/sylee/benchmark/gt_comparison/overlays/negative')
 OUT_DIR.mkdir(exist_ok=True)
 
-CELL_TO_GT_ID = {1: 4, 2: 71, 3: 7, 4: 70}
+CELL_TO_GT_ID = {1: 36, 2: 27, 3: 38, 4: 56}
 PAD = 15
 SCALE = 4
 

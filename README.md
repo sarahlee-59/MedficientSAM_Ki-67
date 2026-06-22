@@ -64,11 +64,19 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 │   ├── package.json / tsconfig.json / next.config.ts / eslint.config.mjs / postcss.config.mjs
 │   └── README.md / AGENTS.md / CLAUDE.md
 │
-└── benchmark/                        # 추론 속도 벤치마크
-    ├── benchmark_speed.py            # ONNX-INT8 vs OpenVINO-FP32 측정
-    ├── benchmark_results.md          # 결과 요약
-    ├── images/                       # 벤치마크용 입력 이미지
-    └── results/                      # 실측 JSON (ki67_hybrid_bench1~5)
+└── benchmark/
+    ├── speed/                        # ① ONNX-INT8 vs OpenVINO-FP32 추론 속도 비교
+    │   ├── benchmark_speed.py
+    │   ├── benchmark_results.md      # 결과 요약
+    │   ├── images/                   # 벤치마크용 입력 이미지
+    │   └── results/                  # 실측 JSON (ki67_hybrid_bench1~5)
+    └── gt_comparison/                # ② bench1.png cell(positive/negative): OpenVINO vs Torch vs 실제 GT
+        ├── overlay_cells_vs_gt(_negative).py        # OpenVINO 결과 오버레이
+        ├── overlay_torch_cells_vs_gt(_negative).py  # Torch(best.ckpt) 결과 오버레이
+        ├── draw_mask_on_image.py
+        ├── cells/                    # 클릭 prompt JSON (positive/negative)
+        ├── overlays/                 # 비교 오버레이 PNG (positive/, negative/)
+        └── reports/                  # gt_comparison_table(_negative).md
 ```
 
 > 다음 디렉터리는 GitHub에 올라가지 않습니다(.gitignore): `weights/`, `experiment_weights/`, `Pathology/`, `Pathology_new/`, `train_npz/` — 자세한 내용은 [DATASET.md](DATASET.md) 참고.

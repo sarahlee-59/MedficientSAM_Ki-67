@@ -29,12 +29,12 @@ rootutils.setup_root(str(REPO), indicator=".project-root", pythonpath=True)
 import hydra
 from hydra import compose, initialize_config_dir
 
-JSON_PATH = Path('/mnt/Disk1/sylee/benchmark/new/ki67_hybrid_bench1 (4).json')
+JSON_PATH = Path('/mnt/Disk1/sylee/benchmark/gt_comparison/cells/ki67_hybrid_bench1_positive.json')
 IMAGE_PATH = Path('/mnt/Disk1/sylee/frontend/public/samples/bench1.png')
 GT_PATH = Path(
     "/mnt/Disk1/sylee/train_npz/Pathology_new/gts_npz_s128/2D_S26-02873,A3,FDC00099,37255_3810_1_78609_72394_802_807_r00_c00.npz"
 )
-OUT_DIR = Path('/mnt/Disk1/sylee/benchmark/new/overlays_gt')
+OUT_DIR = Path('/mnt/Disk1/sylee/benchmark/gt_comparison/overlays/positive')
 OUT_DIR.mkdir(exist_ok=True)
 
 CELL_TO_GT_ID = {1: 4, 2: 71, 3: 7, 4: 70}  # 이전 단계에서 polyline-GT 최대 겹침으로 확인된 매칭
