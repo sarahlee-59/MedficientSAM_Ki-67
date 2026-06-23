@@ -2,8 +2,8 @@
 
 _target_: src.data.medsam_datamodule.MedSAMDataModule
 train_val_test_split: [1, 0, 0]
-batch_size: 8
-num_workers: 8
+batch_size: 16
+num_workers: 16
 pin_memory: true
 
 dataset:
