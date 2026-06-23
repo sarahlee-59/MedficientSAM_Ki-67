@@ -547,7 +547,7 @@ export default function RealtimePage() {
       if (w <= 0 || h <= 0) return;
       // p-6 = 24px 양쪽 → 48px 감산, 실제 캔버스 가용 영역 기준으로 scale 계산
       const s = Math.min(w - 48, h - 48) / CANVAS_SIZE;
-      setViewportScale(Math.max(0.3, Math.min(s, 1)));
+      setViewportScale(Math.max(0.3, s));
     };
     update(el.clientWidth, el.clientHeight);
     const ro = new ResizeObserver((entries) => {
@@ -1692,7 +1692,7 @@ export default function RealtimePage() {
 
         {/* 결과 패널 (캔버스 하단) */}
         {naturalSize.w > 0 && (
-          <div className="shrink-0 flex flex-col bg-gray-900/60" style={{ height: 284 }}>
+          <div className="shrink-0 flex flex-col bg-gray-900/60" style={{ height: 160 }}>
             {/* 섹션 타이틀 바 — 삭제 모드일 때 안내로 전환 (높이 유지 → 캔버스 크기 불변) */}
             {activeTool === "cursor" && editingCellId === null ? (
               <div className="shrink-0 border-t border-red-800/60 h-9 px-5 flex items-center gap-3 bg-red-900/70 text-red-200 whitespace-nowrap overflow-hidden">
