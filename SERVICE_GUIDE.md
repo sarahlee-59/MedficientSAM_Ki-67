@@ -58,6 +58,13 @@ deployment/openvino/decoder.bin   # ← 별도로 받아야 함
 
 ### NAS로 모델 파일 주고받기
 
+NAS 경로:
+
+| 경로 | 용도 |
+|------|------|
+| `/Archived/weight/DP_SAM/Knowledge_Distillation` | distillation 학습 가중치(.ckpt 등) |
+| `/Archived/weight/DP_SAM/Released` | 배포용 ONNX/OpenVINO 모델 파일 |
+
 올려야/받아야 할 파일:
 
 | 경로 | 설명 |
@@ -94,7 +101,7 @@ NAS가 SMB로 이미 마운트되어 있다면 그 경로에 `cp`만 해도 됩�
 cp deployment/openvino/encoder.bin deployment/openvino/decoder.bin <NAS-마운트경로>/deployment/openvino/
 ```
 
-> `<NAS-계정>`, `<NAS-호스트>`, `<NAS-경로>`, `<NAS-마운트경로>`는 실제 환경 값으로 바꿔서 사용하세요. rsync/SSH를 쓰려면 NAS 쪽에서 SSH 서비스를 켜고 계정을 발급해야 합니다 (DSM 제어판 > 터미널 및 SNMP > SSH 서비스 활성화).
+> `<NAS-계정>`, `<NAS-호스트>`, `<NAS-경로>`, `<NAS-마운트경로>`는 실제 환경 값으로 바꿔서 사용하세요. ONNX/OpenVINO 배포 파일은 `<NAS-경로>` 대신 `/Archived/weight/DP_SAM/Released`를 사용하면 됩니다. rsync/SSH를 쓰려면 NAS 쪽에서 SSH 서비스를 켜고 계정을 발급해야 합니다 (DSM 제어판 > 터미널 및 SNMP > SSH 서비스 활성화).
 
 ---
 
