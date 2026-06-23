@@ -1,7 +1,7 @@
 # Ki-67 Nucleus Segmentation — Training Pipeline & Web Service
 
-Ki-67 IHC 병리 이미지에서 핵(nucleus)을 클릭 한 번으로 세그멘테이션하는 서비스.  
-EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVINO FP32 배포까지의 전체 파이프라인과 웹 서비스를 포함합니다.
+Ki-67 IHC 병리 이미지에서 클릭 한 번으로 핵(nucleus)을 세그멘테이션하는 서비스.
+EfficientViT-SAM L1 pretrained → Ki-67 Fine-tuning → OpenVINO FP32 배포, 학습 파이프라인부터 웹 서비스까지 포함.
 
 ---
 
@@ -118,20 +118,15 @@ SAM ViT-B Prompt Encoder + Mask Decoder
 
 ### 1단계: Knowledge Distillation (배포 미채택)
 
-EfficientViT-L1 image encoder를 SAM ViT-B encoder 출력에 MSE 회귀로 학습.  
-두 차례 완주 — 05-14 run(400K steps, ▼50.9%) · 06-12 run(Pathology_new 포함, 200K steps, ▼53.3%).  
-공식 pretrained 기반 fine-tuning 대비 성능이 낮아 최종 배포에서 제외.  
-실험 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
+EfficientViT-L1 encoder를 SAM ViT-B encoder 출력에 MSE 회귀로 학습. 두 차례 완주(05-14: 400K steps ▼50.9%, 06-12: Pathology_new 포함 200K steps ▼53.3%)했으나 공식 pretrained 기반 fine-tuning보다 성능이 낮아 배포에서 제외. 상세: [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md)
 
 ### 2단계: Fine-tuning (Ki-67 핵 데이터) — 배포 채택
 
-EfficientViT-SAM L1 공식 pretrained 가중치 기반으로 병리 핵 데이터 파인튜닝.  
-데이터 구성 및 증강 상세는 [`DATASET.md`](DATASET.md) 참고.
+EfficientViT-SAM L1 공식 pretrained 가중치를 병리 핵 데이터로 파인튜닝. 상세: [`DATASET.md`](DATASET.md)
 
 ### 3단계: ONNX Export + INT8 양자화 + OpenVINO 변환
 
-`src/export_onnx.py` → FP32 ONNX → ORT 최적화 → INT8 동적 양자화 → OpenVINO IR 변환.  
-Export 설정 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
+`src/export_onnx.py` → FP32 ONNX → ORT 최적화 → INT8 동적 양자화 → OpenVINO IR. 상세: [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md)
 
 ---
 
@@ -139,8 +134,9 @@ Export 설정 상세는 [`EXPERIMENT_LOG.md`](EXPERIMENT_LOG.md) 참고.
 
 ### CVPR 2024 MedSAM Laptop Challenge 데이터 (`train_npz/`)
 
-대부분의 데이터는 [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs)에서 다운로드.  
-**CT·Dermoscopy는 공식 Drive에 미포함** — 챌린지 페이지([Codabench](https://www.codabench.org/competitions/1847/))의 추가 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보. **PanNuke·MoNuSeg 2018은 병리 도메인 보강 목적으로 Google Sheet 경유 별도 추가.** 상세 내용은 [`DATASET.md`](DATASET.md) 참고.
+대부분 [공식 Google Drive](https://drive.google.com/drive/folders/1khEIdkO0MC_gG5EkQ7COdDS1jge5_XQs)에서 다운로드.
+**CT·Dermoscopy**는 공식 Drive에 없어 챌린지([Codabench](https://www.codabench.org/competitions/1847/)) 추가 [Google Sheet](https://docs.google.com/spreadsheets/d/1QxjFs41eU6JG5KNhP576fc8MotrJ58KCrqH83HG-__E/edit?gid=2057737934#gid=2057737934)에서 별도 확보.
+**PanNuke·MoNuSeg 2018**은 병리 도메인 보강용으로 같은 Sheet 경유로 추가. 상세: [`DATASET.md`](DATASET.md)
 
 ```
 train_npz/
