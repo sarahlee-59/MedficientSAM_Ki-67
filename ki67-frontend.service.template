@@ -4,11 +4,11 @@ After=network.target ki67-inference.service
 
 [Service]
 Type=simple
-User=infinitt
-WorkingDirectory=/mnt/Disk1/sylee/frontend/.next/standalone
+User=__USER__
+WorkingDirectory=__REPO_DIR__/frontend/.next/standalone
 Environment=PORT=3000
 Environment=HOSTNAME=0.0.0.0
-ExecStart=/home/infinitt/.nvm/versions/node/v24.15.0/bin/node server.js
+ExecStart=__NODE_BIN__ server.js
 Restart=on-failure
 RestartSec=5
 

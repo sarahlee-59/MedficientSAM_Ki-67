@@ -15,10 +15,10 @@ EfficientViT-SAM L1 공식 pretrained → Ki-67 도메인 Fine-tuning → OpenVI
 ├── README.md                         # 프로젝트 개요 및 레포지토리 구조
 ├── DATASET.md                        # 데이터셋 구성 및 전처리 상세 설명
 ├── EXPERIMENT_LOG.md                 # Distillation 실험 로그 및 학습 결과
-├── SERVICE_GUIDE.md                  # 웹 서비스 실행 방법 및 UI 사용 가이드
-├── ki67-frontend.service             # systemd 서비스 유닛 — Next.js (포트 3000)
-├── ki67-inference.service            # systemd 서비스 유닛 — FastAPI (포트 8000)
-├── deploy.sh                         # 배포 스크립트
+├── SERVICE_GUIDE.md                  # 설치(최초 1회) + 실행/사용 가이드
+├── ki67-frontend.service.template    # systemd 서비스 유닛 템플릿 — Next.js (포트 3000)
+├── ki67-inference.service.template   # systemd 서비스 유닛 템플릿 — FastAPI (포트 8000)
+├── deploy.sh                         # 설치(--init)/배포 스크립트 — 경로를 자동 감지해 템플릿에 채워 넣음
 ├── .env.example                      # 환경 변수 템플릿
 │
 ├── CT/                               # CT 전처리 스크립트 (raw_ver → train_npz/CT 변환, DATASET.md 참고)
