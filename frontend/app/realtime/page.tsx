@@ -1723,6 +1723,20 @@ export default function RealtimePage() {
                     <span className="font-bold text-emerald-300">{ki67Rate.toFixed(1)}%</span>
                   </span>
                 )}
+                <button
+                  onClick={saveJson}
+                  disabled={confirmedCount === 0}
+                  className="px-2 py-1 rounded text-[10px] font-medium bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition"
+                >
+                  JSON 저장
+                </button>
+                <button
+                  onClick={savePng}
+                  disabled={confirmedCount === 0}
+                  className="px-2 py-1 rounded text-[10px] font-medium bg-sky-700 hover:bg-sky-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition"
+                >
+                  PNG 저장
+                </button>
               </div>
             )}
             <div className="flex-1 min-h-0 px-5 py-3 flex gap-6 items-start overflow-x-auto overflow-y-hidden">
@@ -1889,7 +1903,7 @@ export default function RealtimePage() {
                 </div>
               )}
 
-              {/* Ki-67 지수 + JSON 저장 */}
+              {/* Ki-67 지수 상세 */}
               <div className="min-w-[160px] shrink-0 flex flex-col gap-3">
                 {confirmedCount > 0 && (
                   <div>
@@ -1917,20 +1931,6 @@ export default function RealtimePage() {
                     {error}
                   </div>
                 )}
-                <button
-                  onClick={saveJson}
-                  disabled={confirmedCount === 0}
-                  className="w-full py-2 rounded text-xs font-medium bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition"
-                >
-                  JSON 저장 {confirmedCount > 0 && <span className="opacity-80">({confirmedCount})</span>}
-                </button>
-                <button
-                  onClick={savePng}
-                  disabled={confirmedCount === 0}
-                  className="w-full py-2 rounded text-xs font-medium bg-sky-700 hover:bg-sky-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition"
-                >
-                  PNG 저장 {confirmedCount > 0 && <span className="opacity-80">({confirmedCount})</span>}
-                </button>
               </div>
 
             </div>
