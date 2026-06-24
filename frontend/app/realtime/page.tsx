@@ -63,8 +63,8 @@ const SAMPLE_IMAGES = [
   { src: "/samples/bench5.png", name: "bench5.png", label: "bench 5" },
 ];
 
-const DEFAULT_SHAPE_WIDTH = 96;
-const DEFAULT_SHAPE_HEIGHT = 96;
+const DEFAULT_SHAPE_WIDTH = 80;
+const DEFAULT_SHAPE_HEIGHT = 80;
 const SHAPE_DIM_MIN = 12;
 const SHAPE_DIM_MAX = 240;
 const DRAG_THRESHOLD = 8; // 캔버스 좌표 px — 이거 초과해야 드래그로 인정
