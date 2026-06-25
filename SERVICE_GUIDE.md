@@ -56,30 +56,41 @@ deployment/openvino/decoder.bin   # ← Releases에서 다운로드 필요
 
 ---
 
-## 4. 추론 서버 (FastAPI + OpenVINO) 의존성 설치
+## 4. 설치 — `deploy.sh --init`
+
+clone한 경로를 자동으로 감지해 의존성 설치 → 빌드 → systemd 서비스 등록까지 한 번에 처리합니다. 절대경로를 직접 수정할 필요가 없습니다.
 
 ```bash
-cd deployment/openvino
-pip install -r requirements.txt
-cd ../..
+./deploy.sh --init
 ```
 
-> 시스템 python을 그대로 쓰는 구성입니다. 격리하고 싶다면 `python3 -m venv .venv-infer && source .venv-infer/bin/activate` 후 위 설치를 진행해도 됩니다.
+내부적으로 다음을 순서대로 수행합니다.
 
-uvicorn이 설치되어 있는지 확인:
+1. `git submodule update --init --recursive`
+2. 모델 가중치(`encoder.bin`/`decoder.bin`) 존재 확인 — 없으면 안내 메시지를 출력하고 중단
+3. `python3 -m venv .venv-infer` 생성 후 그 안에 `pip install -r deployment/openvino/requirements.txt uvicorn` (시스템 python을 건드리지 않는 독립 환경)
+4. `frontend/`에서 `npm ci && npm run build`
+5. `ki67-frontend.service.template` / `ki67-inference.service.template`의 `__REPO_DIR__`, `__USER__`, `__NODE_BIN__`, `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn`)을 현재 환경 값으로 채워 `/etc/systemd/system/`에 설치
+6. `systemctl enable --now`로 두 서비스 활성화
+
+마지막에 두 서비스가 `active`로 출력되면 설치 완료입니다.
+
+> `sudo` 권한이 필요합니다 (systemd 유닛 설치 단계에서 비밀번호를 요구할 수 있습니다). 5~6단계는 `/etc/systemd/system/`에 파일을 쓰고 서비스를 켜는 단계라, 이미 같은 이름의 서비스가 운영 중이라면 잠깐 재시작될 수 있다는 점을 알고 실행하세요.
+
+### (참고) 단계별로 직접 실행하고 싶다면
 
 ```bash
-which uvicorn || pip install uvicorn
+# 추론 서버용 독립 Python 환경 (venv) 생성
+python3 -m venv .venv-infer
+.venv-infer/bin/pip install -r deployment/openvino/requirements.txt uvicorn
+
+# 직접 실행 테스트 (Ctrl+C로 종료)
+cd deployment/openvino && ../../.venv-infer/bin/uvicorn server:app --host 0.0.0.0 --port 8000
+
+# 프론트엔드 빌드 + 직접 실행 테스트
+cd frontend && npm ci && npm run build
+npm run dev   # http://localhost:3000/realtime 에서 확인
 ```
-
-### 직접 실행 테스트 (systemd 등록 전 검증용)
-
-```bash
-cd deployment/openvino
-uvicorn server:app --host 0.0.0.0 --port 8000
-```
-
-`Ctrl+C`로 종료 후 다음 단계로.
 
 ---
 
