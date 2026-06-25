@@ -2,8 +2,6 @@
 
 Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션하고 Ki-67 지수를 계산하는 서비스입니다.
 
-이 문서는 우분투에 서비스를 **처음 설치할 때** 해야 할 일과, 설치 후 **실행/사용 방법**을 함께 다룹니다.
-
 ---
 
 ## 1. 사전 준비물
@@ -42,114 +40,111 @@ git submodule update --init --recursive
 
 ## 3. 모델 가중치 준비
 
-`*.bin`, `*.onnx`, `*.pt`, `*.pth`, `*.ckpt` 등 모델 바이너리는 용량 문제로 git에 포함되지 않습니다 (`.gitignore` 참고). GitHub Releases 또는 NAS에서 받아 배치합니다.
+`*.bin`, `*.onnx`, `*.pt`, `*.pth`, `*.ckpt` 등 모델 바이너리는 용량 문제로 git에 포함되지 않습니다 (`.gitignore` 참고). GitHub Releases에서 받아 배치합니다.
 
 ```bash
 # deployment/openvino/ 에 필요한 파일
 deployment/openvino/encoder.xml   # 코드에 포함됨
-deployment/openvino/encoder.bin   # ← 별도로 받아야 함
+deployment/openvino/encoder.bin   # ← Releases에서 다운로드 필요
 deployment/openvino/decoder.xml   # 코드에 포함됨
-deployment/openvino/decoder.bin   # ← 별도로 받아야 함
+deployment/openvino/decoder.bin   # ← Releases에서 다운로드 필요
 ```
 
 다운로드한 `.bin` 파일을 `deployment/openvino/` 디렉터리에 그대로 복사합니다.
 
 > ONNX INT8 버전을 쓸 경우 `deployment/onnx/README.md` 참고.
 
-### NAS로 모델 파일 주고받기
+---
 
-NAS 경로:
-
-| 경로 | 용도 |
-|------|------|
-| `/Archived/weight/DP_SAM/Knowledge_Distillation` | distillation 학습 가중치(.ckpt 등) |
-| `/Archived/weight/DP_SAM/Released` | 배포용 ONNX/OpenVINO 모델 파일 |
-
-올려야/받아야 할 파일:
-
-| 경로 | 설명 |
-|------|------|
-| `deployment/openvino/encoder.bin` | OpenVINO FP32 인코더 가중치 |
-| `deployment/openvino/decoder.bin` | OpenVINO FP32 디코더 가중치 |
-| `deployment/onnx/encoder.quantized.onnx` | ONNX INT8 인코더 (있는 경우) |
-| `deployment/onnx/decoder.quantized.onnx` | ONNX INT8 디코더 (있는 경우) |
-
-`.xml` 파일과 `requirements.txt`, `infer.py` 등 코드는 git에 포함되어 있으므로 NAS에 올릴 필요 없습니다.
-
-**가장 쉬운 방법 — DSM File Station에서 직접 드래그 앤 드롭**
-브라우저로 NAS 관리 화면(Synology DSM 등)에 접속해 File Station을 열고, 위 파일들을 원하는 폴더로 끌어다 놓으면 끝입니다. 별도 설정이 필요 없습니다.
-
-**명령어로 자동화하고 싶다면 (rsync, SSH 또는 SMB 마운트 필요)**
+## 4. 추론 서버 (FastAPI + OpenVINO) 의존성 설치
 
 ```bash
-# 업로드
-rsync -avzP deployment/openvino/encoder.bin deployment/openvino/decoder.bin \
-  <NAS-계정>@<NAS-호스트>:<NAS-경로>/deployment/openvino/
-
-rsync -avzP deployment/onnx/encoder.quantized.onnx deployment/onnx/decoder.quantized.onnx \
-  <NAS-계정>@<NAS-호스트>:<NAS-경로>/deployment/onnx/
-
-# 다운로드 (받는 쪽)
-rsync -avzP <NAS-계정>@<NAS-호스트>:<NAS-경로>/deployment/openvino/encoder.bin \
-            <NAS-계정>@<NAS-호스트>:<NAS-경로>/deployment/openvino/decoder.bin \
-            deployment/openvino/
+cd deployment/openvino
+pip install -r requirements.txt
+cd ../..
 ```
 
-NAS가 SMB로 이미 마운트되어 있다면 그 경로에 `cp`만 해도 됩니다.
+> 시스템 python을 그대로 쓰는 구성입니다. 격리하고 싶다면 `python3 -m venv .venv-infer && source .venv-infer/bin/activate` 후 위 설치를 진행해도 됩니다.
+
+uvicorn이 설치되어 있는지 확인:
 
 ```bash
-cp deployment/openvino/encoder.bin deployment/openvino/decoder.bin <NAS-마운트경로>/deployment/openvino/
+which uvicorn || pip install uvicorn
 ```
 
-> `<NAS-계정>`, `<NAS-호스트>`, `<NAS-경로>`, `<NAS-마운트경로>`는 실제 환경 값으로 바꿔서 사용하세요. ONNX/OpenVINO 배포 파일은 `<NAS-경로>` 대신 `/Archived/weight/DP_SAM/Released`를 사용하면 됩니다. rsync/SSH를 쓰려면 NAS 쪽에서 SSH 서비스를 켜고 계정을 발급해야 합니다 (DSM 제어판 > 터미널 및 SNMP > SSH 서비스 활성화).
+### 직접 실행 테스트 (systemd 등록 전 검증용)
+
+```bash
+cd deployment/openvino
+uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+`Ctrl+C`로 종료 후 다음 단계로.
 
 ---
 
-## 4. 설치 — `deploy.sh --init`
-
-clone한 경로를 자동으로 감지해 의존성 설치 → 빌드 → systemd 서비스 등록까지 한 번에 처리합니다. 절대경로를 직접 수정할 필요가 없습니다.
+## 5. 프론트엔드 (Next.js) 빌드
 
 ```bash
-./deploy.sh --init
+cd frontend
+npm ci
+npm run build
+cd ..
 ```
 
-내부적으로 다음을 순서대로 수행합니다.
+빌드 결과는 `frontend/.next/standalone/`에 생성됩니다 (systemd 서비스가 이 경로를 실행합니다).
 
-1. `git submodule update --init --recursive`
-2. 모델 가중치(`encoder.bin`/`decoder.bin`) 존재 확인 — 없으면 안내 메시지를 출력하고 중단
-3. `python3 -m venv .venv-infer` 생성 후 그 안에 `pip install -r deployment/openvino/requirements.txt uvicorn` (시스템 python을 건드리지 않는 독립 환경)
-4. `frontend/`에서 `npm ci && npm run build`
-5. `ki67-frontend.service.template` / `ki67-inference.service.template`의 `__REPO_DIR__`, `__USER__`, `__NODE_BIN__`, `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn`)을 현재 환경 값으로 채워 `/etc/systemd/system/`에 설치
-6. `systemctl enable --now`로 두 서비스 활성화
-
-마지막에 두 서비스가 `active`로 출력되면 설치 완료입니다.
-
-> `sudo` 권한이 필요합니다 (systemd 유닛 설치 단계에서 비밀번호를 요구할 수 있습니다). 5~6단계는 `/etc/systemd/system/`에 파일을 쓰고 서비스를 켜는 단계라, 이미 같은 이름의 서비스가 운영 중이라면 잠깐 재시작될 수 있다는 점을 알고 실행하세요.
-
-### (참고) 단계별로 직접 실행하고 싶다면
+### 직접 실행 테스트
 
 ```bash
-# 추론 서버용 독립 Python 환경 (venv) 생성
-python3 -m venv .venv-infer
-.venv-infer/bin/pip install -r deployment/openvino/requirements.txt uvicorn
-
-# 직접 실행 테스트 (Ctrl+C로 종료)
-cd deployment/openvino && ../../.venv-infer/bin/uvicorn server:app --host 0.0.0.0 --port 8000
-
-# 프론트엔드 빌드 + 직접 실행 테스트
-cd frontend && npm ci && npm run build
-npm run dev   # http://localhost:3000/realtime 에서 확인
+cd frontend
+npm run dev
 ```
 
-> venv를 쓰면 이 프로젝트의 Python 패키지가 시스템 전체 python과 분리되어, 다른 프로젝트와 패키지 버전이 충돌할 일이 없습니다.
-
-systemd 유닛을 손으로 등록하려면 `ki67-frontend.service.template`, `ki67-inference.service.template`의 `__REPO_DIR__`(이 저장소의 절대경로), `__USER__`(실행 계정), `__NODE_BIN__`(`which node` 결과), `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn`의 절대경로)를 직접 치환해 `/etc/systemd/system/ki67-frontend.service`, `ki67-inference.service`로 저장한 뒤 `daemon-reload` 하면 됩니다. (systemd 유닛은 구조상 절대경로만 지원하므로 이 두 파일만 예외입니다.)
-
-> ⚠️ 이 가이드는 등록 **방법**을 설명하는 문서입니다. 실제 `sudo systemctl enable --now`는 본인이 직접 실행하세요 — 이미 운영 중인 서비스가 있다면 재시작 타이밍을 본인이 통제하는 것이 안전합니다.
+브라우저에서 `http://localhost:3000/realtime` 접속 후 정상 동작 확인.
 
 ---
 
-## 5. 실행 / 관리
+## 6. systemd 서비스 등록 (상시 운영용)
+
+이미 작성된 유닛 파일을 `/etc/systemd/system/`에 복사하되, **경로와 실행 유저를 환경에 맞게 수정**해야 합니다.
+
+```bash
+sudo cp ki67-inference.service /etc/systemd/system/
+sudo cp ki67-frontend.service /etc/systemd/system/
+```
+
+각 유닛 파일에서 아래 항목을 본인 환경에 맞게 수정하세요.
+
+**`ki67-inference.service`**
+
+| 항목 | 의미 | 수정 예 |
+|------|------|---------|
+| `User=` | 실행 유저 | 본인 계정명 |
+| `WorkingDirectory=` | `deployment/openvino`의 절대경로 | `<repo 절대경로>/deployment/openvino` |
+| `ExecStart=` | uvicorn 실행 경로 | `which uvicorn` 결과로 교체 |
+
+**`ki67-frontend.service`**
+
+| 항목 | 의미 | 수정 예 |
+|------|------|---------|
+| `User=` | 실행 유저 | 본인 계정명 |
+| `WorkingDirectory=` | `frontend/.next/standalone`의 절대경로 | `<repo 절대경로>/frontend/.next/standalone` |
+| `ExecStart=` | node 실행 경로 | `which node` 결과로 교체 (nvm 사용 시 버전별 경로 주의) |
+
+> systemd 유닛 파일은 구조상 절대경로만 지원합니다. 위 두 항목만 예외적으로 절대경로를 사용하세요.
+
+수정 후 등록 및 활성화:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ki67-inference.service
+sudo systemctl enable --now ki67-frontend.service
+```
+
+---
+
+## 7. 실행 / 관리
 
 ### 이미 실행 중인지 확인
 
@@ -191,17 +186,17 @@ http://<서버 IP>:3000/realtime
 
 ### 코드 변경 후 재배포
 
-최초 설치(`--init`)가 끝난 뒤 코드가 바뀔 때마다 저장소 루트에서 인자 없이 실행합니다.
+최초 설치가 끝난 뒤 코드가 바뀔 때마다 저장소 루트의 `deploy.sh`를 사용합니다.
 
 ```bash
 ./deploy.sh
 ```
 
-`git pull` → 프론트엔드 재빌드 → 두 systemd 서비스 재시작까지 자동으로 처리합니다. 저장소 경로는 스크립트가 자기 위치를 기준으로 자동 감지하므로 별도 수정이 필요 없습니다.
+> 스크립트 내부에 `REPO_DIR` 절대경로가 박혀 있으므로, 본인 환경의 clone 경로에 맞게 스크립트 상단을 수정해야 합니다.
 
 ---
 
-## 6. 화면 구성
+## 8. 화면 구성
 
 ```
 ┌─────────────────────────────────────┬──────────────────────┐
@@ -218,7 +213,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 7. 사용 흐름
+## 9. 사용 흐름
 
 ### 1단계 — 이미지 업로드
 
@@ -258,7 +253,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 8. 편집
+## 10. 편집
 
 | 동작 | 방법 |
 |------|------|
@@ -272,7 +267,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 9. 줌 · 화면 이동
+## 11. 줌 · 화면 이동
 
 | 조작 | 효과 |
 |------|------|
@@ -282,7 +277,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 10. 단축키 전체 요약
+## 12. 단축키 전체 요약
 
 | 키 | 기능 |
 |----|------|
@@ -298,7 +293,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 11. 기술 정보
+## 13. 기술 정보
 
 | 항목 | 내용 |
 |------|------|
@@ -310,7 +305,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 12. API 엔드포인트 (FastAPI, 포트 8000)
+## 14. API 엔드포인트 (FastAPI, 포트 8000)
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
@@ -320,7 +315,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 13. 문제 해결
+## 15. 문제 해결
 
 | 증상 | 확인 사항 |
 |------|-----------|
