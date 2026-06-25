@@ -239,9 +239,10 @@ function clampShapeCenter(
 }
 
 /** 저장된 prompt 점들에서 편집용 도형 파라미터 복원 */
-function recoverShapeFromPoints(points: Point[], naturalW: number) {
-  const s = CANVAS_SIZE / naturalW;
-  const pts = points.map((p) => ({ x: p.x * s, y: p.y * s }));
+function recoverShapeFromPoints(points: Point[], naturalW: number, naturalH: number) {
+  const sx = CANVAS_SIZE / naturalW;
+  const sy = CANVAS_SIZE / naturalH;
+  const pts = points.map((p) => ({ x: p.x * sx, y: p.y * sy }));
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -703,6 +704,10 @@ export default function RealtimePage() {
           .catch(() => {});
       }, "image/png");
     };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setError(`이미지를 불러올 수 없습니다: ${file.name}\n파일이 손상되었거나 브라우저가 지원하지 않는 형식일 수 있습니다.`);
+    };
     img.src = url;
   }
 
@@ -783,13 +788,14 @@ export default function RealtimePage() {
       return;
     }
 
-    const toImg = naturalSize.w / CANVAS_SIZE;
+    const toImgX = naturalSize.w / CANVAS_SIZE;
+    const toImgY = naturalSize.h / CANVAS_SIZE;
     const verts = ellipseVertices(
-      shapeCenter.x * toImg,
-      shapeCenter.y * toImg,
+      shapeCenter.x * toImgX,
+      shapeCenter.y * toImgY,
       shapeSides,
-      shapeWidth * toImg,
-      shapeHeight * toImg,
+      shapeWidth * toImgX,
+      shapeHeight * toImgY,
       shapeRotationDeg
     ).map((v) => ({ x: Math.round(v.x), y: Math.round(v.y), label: 1 as const }));
 
@@ -899,12 +905,13 @@ export default function RealtimePage() {
 
     // 캔버스 hit detection → 세포 목록 하이라이트
     if (!isDragging && !resizeOrigin && editingCellId === null && naturalSize.w) {
-      const toImg = naturalSize.w / CANVAS_SIZE;
+      const toImgX = naturalSize.w / CANVAS_SIZE;
+      const toImgY = naturalSize.h / CANVAS_SIZE;
       let found: number | null = null;
       for (let i = cellsRef.current.length - 1; i >= 0; i--) {
         const cell = cellsRef.current[i];
         if (cell.pending || cell.polyline.length < 3) continue;
-        if (isPointInPolyline(p.x * toImg, p.y * toImg, cell.polyline)) {
+        if (isPointInPolyline(p.x * toImgX, p.y * toImgY, cell.polyline)) {
           found = cell.id;
           break;
         }
@@ -996,7 +1003,8 @@ export default function RealtimePage() {
     }
 
     // canvas(768) → image(natural) 좌표 변환
-    const toImg = naturalSize.w / CANVAS_SIZE;
+    const toImgX = naturalSize.w / CANVAS_SIZE;
+    const toImgY = naturalSize.h / CANVAS_SIZE;
     const safeCenter = clampShapeCenter(
       origin,
       shapeWidth,
@@ -1004,10 +1012,10 @@ export default function RealtimePage() {
       shapeRotationDeg,
       shapeSides
     );
-    const cx = safeCenter.x * toImg;
-    const cy = safeCenter.y * toImg;
-    const wImg = shapeWidth * toImg;
-    const hImg = shapeHeight * toImg;
+    const cx = safeCenter.x * toImgX;
+    const cy = safeCenter.y * toImgY;
+    const wImg = shapeWidth * toImgX;
+    const hImg = shapeHeight * toImgY;
     const verts = ellipseVertices(cx, cy, shapeSides, wImg, hImg, shapeRotationDeg).map((v) => ({
       x: Math.round(v.x),
       y: Math.round(v.y),
@@ -1133,7 +1141,7 @@ export default function RealtimePage() {
 
   function handleStartReedit(cell: Cell) {
     if (cell.pending || !naturalSize.w) return;
-    const { cx, cy, w, h, rotationDeg, sides } = recoverShapeFromPoints(cell.points, naturalSize.w);
+    const { cx, cy, w, h, rotationDeg, sides } = recoverShapeFromPoints(cell.points, naturalSize.w, naturalSize.h);
     setEditingCellId(cell.id);
     setReinferPending(false);
     setHoveredCellId(cell.id);
@@ -1153,14 +1161,15 @@ export default function RealtimePage() {
   }
 
   function buildVertsFromCanvasCenter(center: { x: number; y: number }): Point[] {
-    const toImg = naturalSize.w / CANVAS_SIZE;
+    const toImgX = naturalSize.w / CANVAS_SIZE;
+    const toImgY = naturalSize.h / CANVAS_SIZE;
     const safe = clampShapeCenter(center, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides);
     return ellipseVertices(
-      safe.x * toImg,
-      safe.y * toImg,
+      safe.x * toImgX,
+      safe.y * toImgY,
       shapeSides,
-      shapeWidth * toImg,
-      shapeHeight * toImg,
+      shapeWidth * toImgX,
+      shapeHeight * toImgY,
       shapeRotationDeg
     ).map((v) => ({ x: Math.round(v.x), y: Math.round(v.y), label: 1 as const }));
   }

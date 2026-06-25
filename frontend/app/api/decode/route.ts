@@ -9,5 +9,13 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return Response.json(await res.json(), { status: res.status });
+  const text = await res.text();
+  const data = (() => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { detail: text || "백엔드 서버 응답 오류" };
+    }
+  })();
+  return Response.json(data, { status: res.status });
 }
