@@ -57,6 +57,8 @@ deployment/openvino/
 
 제공받은 `.bin` 파일을 `deployment/openvino/` 에 복사합니다.
 
+> 릴리즈 가중치 원본은 NAS의 `Archived/weight/DP_SAM/Released/openvino` 에 보관되어 있습니다.
+
 > ONNX INT8 버전을 쓸 경우 `deployment/onnx/README.md` 참고.
 
 ---
@@ -113,12 +115,18 @@ ss -tlnp | grep -E '3000|8000'
 
 ```bash
 # 추론 서버 (포트 8000)
-sudo systemctl status|start|stop|restart ki67-inference
-journalctl -u ki67-inference -f
+sudo systemctl status  ki67-inference   # 현재 상태(active/failed 등) 확인
+sudo systemctl start   ki67-inference   # 서비스 시작
+sudo systemctl stop    ki67-inference   # 서비스 중지
+sudo systemctl restart ki67-inference   # 재시작 (코드·설정 변경 후)
+journalctl -u ki67-inference -f         # 실시간 로그 스트리밍
 
 # 프론트엔드 (포트 3000)
-sudo systemctl status|start|stop|restart ki67-frontend
-journalctl -u ki67-frontend -f
+sudo systemctl status  ki67-frontend    # 현재 상태(active/failed 등) 확인
+sudo systemctl start   ki67-frontend    # 서비스 시작
+sudo systemctl stop    ki67-frontend    # 서비스 중지
+sudo systemctl restart ki67-frontend    # 재시작 (코드·설정 변경 후)
+journalctl -u ki67-frontend -f          # 실시간 로그 스트리밍
 ```
 
 > 부팅 시 자동 시작됩니다 (`enabled`).
