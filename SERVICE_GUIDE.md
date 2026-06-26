@@ -2,22 +2,27 @@
 
 Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션하고 Ki-67 지수를 계산하는 서비스입니다.
 
-이 문서는 우분투에 서비스를 **처음 설치할 때** 해야 할 일과, 설치 후 **실행/사용 방법**을 함께 다룹니다.
-
 ---
 
 ## 1. 사전 준비물
 
-| 항목 | 확인 명령 | 참고 |
-|------|-----------|------|
-| Python 3.10+ | `python3 --version` | OpenVINO 추론 서버용 |
-| Node.js 20+ (LTS) | `node -v` | Next.js 프론트엔드 빌드/실행용 |
-| npm | `npm -v` | |
-| git | `git --version` | submodule 포함 clone 필요 |
+| 항목 | 확인 명령 |
+|------|-----------|
+| Python 3.10+ | `python3 --version` |
+| Node.js 20+ (LTS) | `node -v` |
+| npm | `npm -v` |
+| git | `git --version` |
 
-Node.js가 없다면 nvm으로 설치하는 것을 권장합니다.
+**없다면:**
 
 ```bash
+# Python 3 + venv
+sudo apt update && sudo apt install -y python3 python3-venv
+
+# git
+sudo apt install -y git
+
+# Node.js (nvm 권장)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
 nvm install --lts
@@ -42,114 +47,89 @@ git submodule update --init --recursive
 
 ## 3. 모델 가중치 준비
 
-```bash
-# deployment/openvino/ 에 필요한 파일
-deployment/openvino/encoder.xml   # 코드에 포함됨
-deployment/openvino/encoder.bin   # ← 별도로 받아야 함
-deployment/openvino/decoder.xml   # 코드에 포함됨
-deployment/openvino/decoder.bin   # ← 별도로 받아야 함
+```
+deployment/openvino/
+├── encoder.xml   # 저장소에 포함
+├── encoder.bin   # ← 별도 제공 파일
+├── decoder.xml   # 저장소에 포함
+└── decoder.bin   # ← 별도 제공 파일
 ```
 
-다운로드한 `.bin` 파일을 `deployment/openvino/` 디렉터리에 그대로 복사합니다.
+제공받은 `.bin` 파일을 `deployment/openvino/` 에 복사합니다.
 
 > ONNX INT8 버전을 쓸 경우 `deployment/onnx/README.md` 참고.
-
 
 ---
 
 ## 4. 설치 — `deploy.sh --init`
 
-clone한 경로를 자동으로 감지해 의존성 설치 → 빌드 → systemd 서비스 등록까지 한 번에 처리합니다. 절대경로를 직접 수정할 필요가 없습니다.
-
 ```bash
+chmod +x deploy.sh
 ./deploy.sh --init
 ```
 
-내부적으로 다음을 순서대로 수행합니다.
+> `sudo` 권한이 필요합니다 (systemd 유닛 설치 시 비밀번호 요구).
+
+내부 동작 순서:
 
 1. `git submodule update --init --recursive`
-2. 모델 가중치(`encoder.bin`/`decoder.bin`) 존재 확인 — 없으면 안내 메시지를 출력하고 중단
-3. `python3 -m venv .venv-infer` 생성 후 그 안에 `pip install -r deployment/openvino/requirements.txt uvicorn` (시스템 python을 건드리지 않는 독립 환경)
+2. `encoder.bin` / `decoder.bin` 존재 확인 — 없으면 안내 후 중단
+3. `.venv-infer/` 생성 후 `pip install -r deployment/openvino/requirements.txt uvicorn`
 4. `frontend/`에서 `npm ci && npm run build`
-5. `ki67-frontend.service.template` / `ki67-inference.service.template`의 `__REPO_DIR__`, `__USER__`, `__NODE_BIN__`, `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn`)을 현재 환경 값으로 채워 `/etc/systemd/system/`에 설치
-6. `systemctl enable --now`로 두 서비스 활성화
+5. systemd 유닛(`ki67-frontend.service`, `ki67-inference.service`) 설치 및 `enable --now`
 
 마지막에 두 서비스가 `active`로 출력되면 설치 완료입니다.
 
-> `sudo` 권한이 필요합니다 (systemd 유닛 설치 단계에서 비밀번호를 요구할 수 있습니다). 5~6단계는 `/etc/systemd/system/`에 파일을 쓰고 서비스를 켜는 단계라, 이미 같은 이름의 서비스가 운영 중이라면 잠깐 재시작될 수 있다는 점을 알고 실행하세요.
-
-### (참고) 단계별로 직접 실행하고 싶다면
+### (참고) 단계별 수동 실행
 
 ```bash
-# 추론 서버용 독립 Python 환경 (venv) 생성
+# 추론 서버 (포트 8000)
 python3 -m venv .venv-infer
 .venv-infer/bin/pip install -r deployment/openvino/requirements.txt uvicorn
+cd deployment/openvino
+../../.venv-infer/bin/uvicorn server:app --host 0.0.0.0 --port 8000
 
-# 직접 실행 테스트 (Ctrl+C로 종료)
-cd deployment/openvino && ../../.venv-infer/bin/uvicorn server:app --host 0.0.0.0 --port 8000
-
-# 프론트엔드 빌드 + 직접 실행 테스트
-cd frontend && npm ci && npm run build
-npm run dev   # http://localhost:3000/realtime 에서 확인
+# 프론트엔드 (포트 3000, 별도 터미널)
+cd frontend && npm ci && npm run build && npm start
 ```
 
-> venv를 쓰면 이 프로젝트의 Python 패키지가 시스템 전체 python과 분리되어, 다른 프로젝트와 패키지 버전이 충돌할 일이 없습니다.
-
-systemd 유닛을 손으로 등록하려면 `ki67-frontend.service.template`, `ki67-inference.service.template`의 `__REPO_DIR__`(이 저장소의 절대경로), `__USER__`(실행 계정), `__NODE_BIN__`(`which node` 결과), `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn`의 절대경로)를 직접 치환해 `/etc/systemd/system/ki67-frontend.service`, `ki67-inference.service`로 저장한 뒤 `daemon-reload` 하면 됩니다. (systemd 유닛은 구조상 절대경로만 지원하므로 이 두 파일만 예외입니다.)
-
-> ⚠️ 이 가이드는 등록 **방법**을 설명하는 문서입니다. 실제 `sudo systemctl enable --now`는 본인이 직접 실행하세요 — 이미 운영 중인 서비스가 있다면 재시작 타이밍을 본인이 통제하는 것이 안전합니다.
+systemd 유닛을 직접 등록하려면 `ki67-frontend.service.template`, `ki67-inference.service.template`의 `__REPO_DIR__`(저장소 절대경로), `__USER__`(실행 계정), `__NODE_BIN__`(`which node`), `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn` 절대경로)를 치환해 `/etc/systemd/system/`에 저장 후 `systemctl daemon-reload`하세요.
 
 ---
 
 ## 5. 실행 / 관리
 
-### 이미 실행 중인지 확인
+### 상태 확인
 
 ```bash
 ss -tlnp | grep -E '3000|8000'
 ```
 
-두 포트가 모두 보이면 바로 접속 → `http://<서버 IP>:3000/realtime`
+두 포트가 모두 보이면 → `http://<서버 IP>:3000/realtime`
 
-### 추론 서버 (포트 8000)
+> 포트가 막혀 있다면: `sudo ufw allow 3000 && sudo ufw allow 8000`
+
+### 서비스 관리
 
 ```bash
-sudo systemctl status ki67-inference
-sudo systemctl start ki67-inference
-sudo systemctl stop ki67-inference
-sudo systemctl restart ki67-inference
+# 추론 서버 (포트 8000)
+sudo systemctl status|start|stop|restart ki67-inference
 journalctl -u ki67-inference -f
-```
 
-### 프론트엔드 (포트 3000)
-
-```bash
-sudo systemctl status ki67-frontend
-sudo systemctl start ki67-frontend
-sudo systemctl stop ki67-frontend
-sudo systemctl restart ki67-frontend
+# 프론트엔드 (포트 3000)
+sudo systemctl status|start|stop|restart ki67-frontend
 journalctl -u ki67-frontend -f
 ```
 
 > 부팅 시 자동 시작됩니다 (`enabled`).
 
-### 접속
-
-```
-http://<서버 IP>:3000/realtime
-```
-
-> 두 서버 모두 실행 후 5~10초 뒤 접속하세요.
-
 ### 코드 변경 후 재배포
-
-최초 설치(`--init`)가 끝난 뒤 코드가 바뀔 때마다 저장소 루트에서 인자 없이 실행합니다.
 
 ```bash
 ./deploy.sh
 ```
 
-`git pull` → 프론트엔드 재빌드 → 두 systemd 서비스 재시작까지 자동으로 처리합니다. 저장소 경로는 스크립트가 자기 위치를 기준으로 자동 감지하므로 별도 수정이 필요 없습니다.
+`git pull` → 프론트엔드 재빌드 → 두 서비스 재시작을 자동 처리합니다.
 
 ---
 
