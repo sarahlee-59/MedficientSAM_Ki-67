@@ -5,6 +5,7 @@ Run from this directory:
 
 Requires: fastapi uvicorn[standard] python-multipart openvino numpy opencv-python
 """
+import base64
 import json
 import uuid
 from pathlib import Path
@@ -48,6 +49,13 @@ def _decode_image(img_bytes: bytes) -> np.ndarray:
 
 _segmenter: Ki67Segmenter | None = None
 _session_cache: dict = {}   # session_id → (embedding, H, W)
+_SESSION_CACHE_MAX = 4  # 여러 탭/이미지가 동시에 써도 서로의 세션을 날리지 않도록 LRU로 보관
+
+
+def _store_session(session_id: str, embedding, H: int, W: int) -> None:
+    if len(_session_cache) >= _SESSION_CACHE_MAX:
+        _session_cache.pop(next(iter(_session_cache)))
+    _session_cache[session_id] = (embedding, H, W)
 
 
 def get_segmenter() -> Ki67Segmenter:
@@ -70,7 +78,8 @@ def _decode_session(session_id: str, points_json: str, labels_json: str) -> dict
     masks = get_segmenter().decode(
         embedding, pts[np.newaxis], (H, W), lbls[np.newaxis]
     )
-    return {"mask": masks[0].flatten().tolist(), "width": W, "height": H}
+    flat = masks[0].flatten().astype(np.uint8)
+    return {"mask_b64": base64.b64encode(flat).decode("ascii"), "width": W, "height": H}
 
 
 @app.post("/encode")
@@ -81,8 +90,7 @@ async def encode(image: UploadFile = File(...)):
     H, W = img_rgb.shape[:2]
     embedding = get_segmenter().encode(img_rgb)
     session_id = str(uuid.uuid4())
-    _session_cache.clear()
-    _session_cache[session_id] = (embedding, H, W)
+    _store_session(session_id, embedding, H, W)
     return {"session_id": session_id, "width": W, "height": H}
 
 
@@ -114,6 +122,5 @@ async def infer(
     H, W = img_rgb.shape[:2]
     embedding = get_segmenter().encode(img_rgb)
     session_id = str(uuid.uuid4())
-    _session_cache.clear()
-    _session_cache[session_id] = (embedding, H, W)
+    _store_session(session_id, embedding, H, W)
     return _decode_session(session_id, points, labels)

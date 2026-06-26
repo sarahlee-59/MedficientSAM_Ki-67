@@ -5,6 +5,7 @@ Run from this directory:
 
 Requires: fastapi uvicorn[standard] python-multipart onnxruntime numpy opencv-python
 """
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -70,4 +71,5 @@ async def infer(
         lbls[np.newaxis],   # (1, K)
     )  # (1, H, W) uint8
 
-    return {"mask": masks[0].flatten().tolist(), "width": W, "height": H}
+    flat = masks[0].flatten().astype(np.uint8)
+    return {"mask_b64": base64.b64encode(flat).decode("ascii"), "width": W, "height": H}
