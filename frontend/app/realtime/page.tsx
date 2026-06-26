@@ -68,7 +68,7 @@ const DEFAULT_SHAPE_HEIGHT = 80;
 const SHAPE_DIM_MIN = 12;
 const SHAPE_DIM_MAX = 240;
 const DRAG_THRESHOLD = 8; // 캔버스 좌표 px — 이거 초과해야 드래그로 인정
-const PREVIEW_DEBOUNCE_MS = 80;
+const PREVIEW_DEBOUNCE_MS = 30;
 
 
 function chaikin(pts: [number, number][], iterations = 2): [number, number][] {
@@ -222,26 +222,36 @@ function getShapeVertexExtents(width: number, height: number, rotationDeg: numbe
 
 function clampShapeCenter(
   center: { x: number; y: number },
-  width: number,
-  height: number,
-  rotationDeg: number,
-  sides: number
+  _width: number,
+  _height: number,
+  _rotationDeg: number,
+  _sides: number,
+  canvasW: number,
+  canvasH: number
 ) {
-  const { maxX, maxY } = getShapeVertexExtents(width, height, rotationDeg, sides);
-  const loX = maxX;
-  const hiX = CANVAS_SIZE - maxX;
-  const loY = maxY;
-  const hiY = CANVAS_SIZE - maxY;
   return {
-    x: clamp(center.x, Math.min(loX, hiX), Math.max(loX, hiX)),
-    y: clamp(center.y, Math.min(loY, hiY), Math.max(loY, hiY)),
+    x: clamp(center.x, 0, canvasW),
+    y: clamp(center.y, 0, canvasH),
   };
 }
 
+/** naturalW/H 이미지를 maxSize 정사각 박스 안에 비율 유지(contain)로 맞춘 표시 크기 */
+function fitDisplaySize(naturalW: number, naturalH: number, maxSize: number) {
+  if (!naturalW || !naturalH) return { w: maxSize, h: maxSize };
+  const scale = Math.min(maxSize / naturalW, maxSize / naturalH);
+  return { w: Math.round(naturalW * scale), h: Math.round(naturalH * scale) };
+}
+
 /** 저장된 prompt 점들에서 편집용 도형 파라미터 복원 */
-function recoverShapeFromPoints(points: Point[], naturalW: number, naturalH: number) {
-  const sx = CANVAS_SIZE / naturalW;
-  const sy = CANVAS_SIZE / naturalH;
+function recoverShapeFromPoints(
+  points: Point[],
+  naturalW: number,
+  naturalH: number,
+  canvasW: number,
+  canvasH: number
+) {
+  const sx = canvasW / naturalW;
+  const sy = canvasH / naturalH;
   const pts = points.map((p) => ({ x: p.x * sx, y: p.y * sy }));
   let minX = Infinity;
   let maxX = -Infinity;
@@ -387,6 +397,28 @@ export default function RealtimePage() {
   const previewAbortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string | null>(null);
 
+  // cells/excludeId/크기가 바뀌지 않았으면 occupied mask(원본 해상도 픽셀 단위) 재계산을 건너뛴다.
+  // buildOccupiedMask는 캔버스 풀스캔(O(W*H))이라 매 미리보기마다 다시 만들면 큰 이미지에서 체감 지연이 생긴다.
+  const occupiedMaskCacheRef = useRef<{
+    cells: Cell[];
+    exclude: number | null;
+    w: number;
+    h: number;
+    mask: Uint8Array;
+  } | null>(null);
+
+  function getCachedOccupiedMask(w: number, h: number): Uint8Array {
+    const cells = cellsRef.current;
+    const exclude = inferenceExcludeCellIdRef.current;
+    const cache = occupiedMaskCacheRef.current;
+    if (cache && cache.cells === cells && cache.exclude === exclude && cache.w === w && cache.h === h) {
+      return cache.mask;
+    }
+    const mask = buildOccupiedMask(cells, exclude, w, h);
+    occupiedMaskCacheRef.current = { cells, exclude, w, h, mask };
+    return mask;
+  }
+
   const previewInferenceRef = useRef<SegmentFn>(async (image, points) => {
     const t0 = performance.now();
 
@@ -394,7 +426,7 @@ export default function RealtimePage() {
     const controller = new AbortController();
     previewAbortRef.current = controller;
 
-    let json: { mask: number[]; width: number; height: number };
+    let json: { mask_b64: string; width: number; height: number };
     const sessionId = sessionIdRef.current;
 
     if (sessionId) {
@@ -434,14 +466,9 @@ export default function RealtimePage() {
       json = await res.json();
     }
 
-    const { mask, width: W, height: H } = json;
-    const binary = new Uint8Array(mask);
-    const occupied = buildOccupiedMask(
-      cellsRef.current,
-      inferenceExcludeCellIdRef.current,
-      W,
-      H,
-    );
+    const { mask_b64, width: W, height: H } = json;
+    const binary = Uint8Array.from(atob(mask_b64), (c) => c.charCodeAt(0));
+    const occupied = getCachedOccupiedMask(W, H);
     subtractOccupiedFromMask(binary, occupied);
 
     const polyline = maskToPolyline(binary, W, H);
@@ -453,6 +480,13 @@ export default function RealtimePage() {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
+  const [isEncoding, setIsEncoding] = useState(false);
+
+  // 이미지 원본 비율을 유지한 채 CANVAS_SIZE 박스 안에 맞춘 실제 표시 크기
+  const { w: dispW, h: dispH } = useMemo(
+    () => fitDisplaySize(naturalSize.w, naturalSize.h, CANVAS_SIZE),
+    [naturalSize.w, naturalSize.h]
+  );
 
   const [shapeSides, setShapeSides] = useState<3 | 4 | 5 | 6>(4);
   const [pendingKiLabel, setPendingKiLabel] = useState<"positive" | "negative" | null>(null);
@@ -494,6 +528,10 @@ export default function RealtimePage() {
   const isToolbarDraggingRef = useRef(false);
   const toolbarDragStartXRef = useRef(0);
   const toolbarDragStartWidthRef = useRef(0);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(160);
+  const isBottomPanelDraggingRef = useRef(false);
+  const bottomPanelDragStartYRef = useRef(0);
+  const bottomPanelDragStartHeightRef = useRef(0);
   const windowWidthRef = useRef(typeof window !== "undefined" ? window.innerWidth : 1280);
   const [cellFilter, setCellFilter] = useState<"all" | "positive" | "negative">("all");
   const hoveredFromCanvasRef = useRef(false);
@@ -533,7 +571,7 @@ export default function RealtimePage() {
   // 도형이 그려질 중심: 드래그 중이면 dragOrigin 고정, 아니면 마우스 위치
   const rawCenter = isDragging && dragOrigin ? dragOrigin : cursorPos;
   const shapeCenter = rawCenter
-    ? clampShapeCenter(rawCenter, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides)
+    ? clampShapeCenter(rawCenter, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides, dispW, dispH)
     : null;
 
   useEffect(() => {
@@ -547,7 +585,7 @@ export default function RealtimePage() {
     const update = (w: number, h: number) => {
       if (w <= 0 || h <= 0) return;
       // p-6 = 24px 양쪽 → 48px 감산, 실제 캔버스 가용 영역 기준으로 scale 계산
-      const s = Math.min(w - 48, h - 48) / CANVAS_SIZE;
+      const s = Math.min((w - 48) / dispW, (h - 48) / dispH);
       setViewportScale(Math.max(0.3, s));
     };
     update(el.clientWidth, el.clientHeight);
@@ -557,7 +595,7 @@ export default function RealtimePage() {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [dispW, dispH]);
 
   // ── 캔버스 렌더링 ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -752,8 +790,8 @@ export default function RealtimePage() {
           const next = clamp(prev * factor, 1, 8);
           const scale = next / prev;
           setPan((p) => ({
-            x: clamp(mx * (1 - scale) + p.x * scale, CANVAS_SIZE * (1 - next), 0),
-            y: clamp(my * (1 - scale) + p.y * scale, CANVAS_SIZE * (1 - next), 0),
+            x: clamp(mx * (1 - scale) + p.x * scale, dispW * (1 - next), 0),
+            y: clamp(my * (1 - scale) + p.y * scale, dispH * (1 - next), 0),
           }));
           return next;
         });
@@ -766,7 +804,7 @@ export default function RealtimePage() {
     };
     wrapper.addEventListener("wheel", onWheel, { passive: false });
     return () => wrapper.removeEventListener("wheel", onWheel);
-  }, [naturalSize.w]);
+  }, [naturalSize.w, dispW, dispH]);
 
   // ── hover preview: 클릭 전 세그먼트 미리보기 ────────────────────────────────
   useEffect(() => {
@@ -788,8 +826,8 @@ export default function RealtimePage() {
       return;
     }
 
-    const toImgX = naturalSize.w / CANVAS_SIZE;
-    const toImgY = naturalSize.h / CANVAS_SIZE;
+    const toImgX = naturalSize.w / dispW;
+    const toImgY = naturalSize.h / dispH;
     const verts = ellipseVertices(
       shapeCenter.x * toImgX,
       shapeCenter.y * toImgY,
@@ -830,20 +868,22 @@ export default function RealtimePage() {
     shapeHeight,
     shapeRotationDeg,
     naturalSize.w,
+    dispW,
+    dispH,
     isDragging,
     resizeOrigin,
     editingCellId,
     reinferPending,
   ]);
 
-  /** canvas(768) 좌표계로 환산 */
+  /** canvas(dispW x dispH) 좌표계로 환산 */
   function canvasPointFromEvent(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (e.clientX - rect.left) * (CANVAS_SIZE / rect.width),
-      y: (e.clientY - rect.top) * (CANVAS_SIZE / rect.height),
+      x: (e.clientX - rect.left) * (dispW / rect.width),
+      y: (e.clientY - rect.top) * (dispH / rect.height),
     };
   }
 
@@ -855,8 +895,8 @@ export default function RealtimePage() {
       const sx = e.clientX, sy = e.clientY, px = pan.x, py = pan.y, z = zoom;
       const onMove = (ev: MouseEvent) => {
         setPan({
-          x: clamp(px + (ev.clientX - sx), CANVAS_SIZE * (1 - z), 0),
-          y: clamp(py + (ev.clientY - sy), CANVAS_SIZE * (1 - z), 0),
+          x: clamp(px + (ev.clientX - sx), dispW * (1 - z), 0),
+          y: clamp(py + (ev.clientY - sy), dispH * (1 - z), 0),
         });
       };
       const onUp = () => {
@@ -905,8 +945,8 @@ export default function RealtimePage() {
 
     // 캔버스 hit detection → 세포 목록 하이라이트
     if (!isDragging && !resizeOrigin && editingCellId === null && naturalSize.w) {
-      const toImgX = naturalSize.w / CANVAS_SIZE;
-      const toImgY = naturalSize.h / CANVAS_SIZE;
+      const toImgX = naturalSize.w / dispW;
+      const toImgY = naturalSize.h / dispH;
       let found: number | null = null;
       for (let i = cellsRef.current.length - 1; i >= 0; i--) {
         const cell = cellsRef.current[i];
@@ -1003,14 +1043,16 @@ export default function RealtimePage() {
     }
 
     // canvas(768) → image(natural) 좌표 변환
-    const toImgX = naturalSize.w / CANVAS_SIZE;
-    const toImgY = naturalSize.h / CANVAS_SIZE;
+    const toImgX = naturalSize.w / dispW;
+    const toImgY = naturalSize.h / dispH;
     const safeCenter = clampShapeCenter(
       origin,
       shapeWidth,
       shapeHeight,
       shapeRotationDeg,
-      shapeSides
+      shapeSides,
+      dispW,
+      dispH
     );
     const cx = safeCenter.x * toImgX;
     const cy = safeCenter.y * toImgY;
@@ -1141,7 +1183,7 @@ export default function RealtimePage() {
 
   function handleStartReedit(cell: Cell) {
     if (cell.pending || !naturalSize.w) return;
-    const { cx, cy, w, h, rotationDeg, sides } = recoverShapeFromPoints(cell.points, naturalSize.w, naturalSize.h);
+    const { cx, cy, w, h, rotationDeg, sides } = recoverShapeFromPoints(cell.points, naturalSize.w, naturalSize.h, dispW, dispH);
     setEditingCellId(cell.id);
     setReinferPending(false);
     setHoveredCellId(cell.id);
@@ -1150,7 +1192,7 @@ export default function RealtimePage() {
     setShapeWidth(w);
     setShapeHeight(h);
     setShapeRotationDeg(rotationDeg);
-    setCursorPos(clampShapeCenter({ x: cx, y: cy }, w, h, rotationDeg, sides));
+    setCursorPos(clampShapeCenter({ x: cx, y: cy }, w, h, rotationDeg, sides, dispW, dispH));
     setError(null);
     previewReqSeqRef.current += 1;
     setPreviewPolyline(null);
@@ -1161,9 +1203,9 @@ export default function RealtimePage() {
   }
 
   function buildVertsFromCanvasCenter(center: { x: number; y: number }): Point[] {
-    const toImgX = naturalSize.w / CANVAS_SIZE;
-    const toImgY = naturalSize.h / CANVAS_SIZE;
-    const safe = clampShapeCenter(center, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides);
+    const toImgX = naturalSize.w / dispW;
+    const toImgY = naturalSize.h / dispH;
+    const safe = clampShapeCenter(center, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides, dispW, dispH);
     return ellipseVertices(
       safe.x * toImgX,
       safe.y * toImgY,
@@ -1178,7 +1220,7 @@ export default function RealtimePage() {
     const img = imgRef.current;
     if (!naturalSize.w || !img || editingCellId === null) return;
     if (reinferPending) return;
-    const safe = clampShapeCenter(origin, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides);
+    const safe = clampShapeCenter(origin, shapeWidth, shapeHeight, shapeRotationDeg, shapeSides, dispW, dispH);
     setCursorPos(safe);
     const verts = buildVertsFromCanvasCenter(safe);
     const cellId = editingCellId;
@@ -1319,6 +1361,23 @@ export default function RealtimePage() {
     };
   }, []);
 
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isBottomPanelDraggingRef.current) return;
+      const dy = bottomPanelDragStartYRef.current - e.clientY;
+      setBottomPanelHeight(clamp(bottomPanelDragStartHeightRef.current + dy, 100, 480));
+    }
+    function onMouseUp() {
+      isBottomPanelDraggingRef.current = false;
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   // ── JSON ──────────────────────────────────────────────────────────────────
   function buildResultJson() {
     const confirmed = cells.filter((c) => !c.pending);
@@ -1332,7 +1391,6 @@ export default function RealtimePage() {
         height_px: shapeHeight,
         rotation_deg: displayRotation,
       },
-      latency_stats_ms: stats,
       cells: confirmed.map((cell, idx) => ({
         cell_index: idx + 1,
         ki67_label: cell.kiLabel,
@@ -1487,8 +1545,8 @@ export default function RealtimePage() {
           <div
             className="relative overflow-hidden rounded-lg border border-gray-700 shadow-2xl shrink-0"
             style={{
-              width: CANVAS_SIZE,
-              height: CANVAS_SIZE,
+              width: dispW,
+              height: dispH,
               transform: `scale(${viewportScale})`,
               transformOrigin: "center center",
             }}
@@ -1502,14 +1560,14 @@ export default function RealtimePage() {
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: "top left",
-                width: CANVAS_SIZE,
-                height: CANVAS_SIZE,
+                width: dispW,
+                height: dispH,
               }}
             >
               <canvas
                 ref={canvasRef}
-                width={CANVAS_SIZE}
-                height={CANVAS_SIZE}
+                width={dispW}
+                height={dispH}
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
@@ -1581,8 +1639,8 @@ export default function RealtimePage() {
               {isDragging && dragOrigin && cursorPos && (
                 <svg
                   className="pointer-events-none absolute inset-0"
-                  width={CANVAS_SIZE}
-                  height={CANVAS_SIZE}
+                  width={dispW}
+                  height={dispH}
                 >
                   <line
                     x1={dragOrigin.x}
@@ -1602,8 +1660,8 @@ export default function RealtimePage() {
               {resizeOrigin && cursorPos && (
                 <svg
                   className="pointer-events-none absolute inset-0"
-                  width={CANVAS_SIZE}
-                  height={CANVAS_SIZE}
+                  width={dispW}
+                  height={dispH}
                 >
                   {/* X축 = 가로폭 (시안) */}
                   <line
@@ -1642,7 +1700,7 @@ export default function RealtimePage() {
 
             {/* 우상단 카운터 + 액션 상태 */}
             <div className="absolute top-0 right-0 z-10 pt-2 pr-2 pointer-events-none">
-              <div className={`pointer-events-auto bg-black/70 backdrop-blur px-2.5 py-1 rounded text-[11px] font-mono flex items-center gap-1.5 transition-opacity duration-300 ${cursorPos && cursorPos.x > CANVAS_SIZE - 160 && cursorPos.y < 160 ? "opacity-20" : "opacity-100"}`}>
+              <div className={`pointer-events-auto bg-black/70 backdrop-blur px-2.5 py-1 rounded text-[11px] font-mono flex items-center gap-1.5 transition-opacity duration-300 ${cursorPos && cursorPos.x > dispW - 160 && cursorPos.y < 160 ? "opacity-20" : "opacity-100"}`}>
                 <span className="text-emerald-300">{confirmedCount}</span>
                 <span className="text-gray-500">cells</span>
                 {activeTool === "cursor" && <span className="text-red-400">· 삭제 모드 (Esc)</span>}
@@ -1699,9 +1757,22 @@ export default function RealtimePage() {
         )}
         </div>
 
+        {/* 결과 패널 리사이즈 핸들 */}
+        {naturalSize.w > 0 && (
+          <div
+            onMouseDown={(e) => {
+              isBottomPanelDraggingRef.current = true;
+              bottomPanelDragStartYRef.current = e.clientY;
+              bottomPanelDragStartHeightRef.current = bottomPanelHeight;
+              e.preventDefault();
+            }}
+            className="h-1 shrink-0 cursor-row-resize bg-gray-800 hover:bg-blue-500/50 transition-colors"
+          />
+        )}
+
         {/* 결과 패널 (캔버스 하단) */}
         {naturalSize.w > 0 && (
-          <div className="shrink-0 flex flex-col bg-gray-900/60" style={{ height: 160 }}>
+          <div className="shrink-0 flex flex-col bg-gray-900/60" style={{ height: bottomPanelHeight }}>
             {/* 섹션 타이틀 바 — 삭제 모드일 때 안내로 전환 (높이 유지 → 캔버스 크기 불변) */}
             {activeTool === "cursor" && editingCellId === null ? (
               <div className="shrink-0 border-t border-red-800/60 h-9 px-5 flex items-center gap-3 bg-red-900/70 text-red-200 whitespace-nowrap overflow-hidden">
