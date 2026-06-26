@@ -2,6 +2,8 @@
 
 Ki-67 세포 이미지에서 핵(nucleus)을 클릭만으로 세그멘테이션하고 Ki-67 지수를 계산하는 서비스입니다.
 
+이 문서는 우분투에 서비스를 **처음 설치할 때** 해야 할 일과, 설치 후 **실행/사용 방법**을 함께 다룹니다.
+
 ---
 
 ## 1. 사전 준비물
@@ -40,19 +42,18 @@ git submodule update --init --recursive
 
 ## 3. 모델 가중치 준비
 
-`*.bin`, `*.onnx`, `*.pt`, `*.pth`, `*.ckpt` 등 모델 바이너리는 용량 문제로 git에 포함되지 않습니다 (`.gitignore` 참고). GitHub Releases에서 받아 배치합니다.
-
 ```bash
 # deployment/openvino/ 에 필요한 파일
 deployment/openvino/encoder.xml   # 코드에 포함됨
-deployment/openvino/encoder.bin   # ← Releases에서 다운로드 필요
+deployment/openvino/encoder.bin   # ← 별도로 받아야 함
 deployment/openvino/decoder.xml   # 코드에 포함됨
-deployment/openvino/decoder.bin   # ← Releases에서 다운로드 필요
+deployment/openvino/decoder.bin   # ← 별도로 받아야 함
 ```
 
 다운로드한 `.bin` 파일을 `deployment/openvino/` 디렉터리에 그대로 복사합니다.
 
 > ONNX INT8 버전을 쓸 경우 `deployment/onnx/README.md` 참고.
+
 
 ---
 
@@ -92,70 +93,15 @@ cd frontend && npm ci && npm run build
 npm run dev   # http://localhost:3000/realtime 에서 확인
 ```
 
----
+> venv를 쓰면 이 프로젝트의 Python 패키지가 시스템 전체 python과 분리되어, 다른 프로젝트와 패키지 버전이 충돌할 일이 없습니다.
 
-## 5. 프론트엔드 (Next.js) 빌드
+systemd 유닛을 손으로 등록하려면 `ki67-frontend.service.template`, `ki67-inference.service.template`의 `__REPO_DIR__`(이 저장소의 절대경로), `__USER__`(실행 계정), `__NODE_BIN__`(`which node` 결과), `__UVICORN_BIN__`(`.venv-infer/bin/uvicorn`의 절대경로)를 직접 치환해 `/etc/systemd/system/ki67-frontend.service`, `ki67-inference.service`로 저장한 뒤 `daemon-reload` 하면 됩니다. (systemd 유닛은 구조상 절대경로만 지원하므로 이 두 파일만 예외입니다.)
 
-```bash
-cd frontend
-npm ci
-npm run build
-cd ..
-```
-
-빌드 결과는 `frontend/.next/standalone/`에 생성됩니다 (systemd 서비스가 이 경로를 실행합니다).
-
-### 직접 실행 테스트
-
-```bash
-cd frontend
-npm run dev
-```
-
-브라우저에서 `http://localhost:3000/realtime` 접속 후 정상 동작 확인.
+> ⚠️ 이 가이드는 등록 **방법**을 설명하는 문서입니다. 실제 `sudo systemctl enable --now`는 본인이 직접 실행하세요 — 이미 운영 중인 서비스가 있다면 재시작 타이밍을 본인이 통제하는 것이 안전합니다.
 
 ---
 
-## 6. systemd 서비스 등록 (상시 운영용)
-
-이미 작성된 유닛 파일을 `/etc/systemd/system/`에 복사하되, **경로와 실행 유저를 환경에 맞게 수정**해야 합니다.
-
-```bash
-sudo cp ki67-inference.service /etc/systemd/system/
-sudo cp ki67-frontend.service /etc/systemd/system/
-```
-
-각 유닛 파일에서 아래 항목을 본인 환경에 맞게 수정하세요.
-
-**`ki67-inference.service`**
-
-| 항목 | 의미 | 수정 예 |
-|------|------|---------|
-| `User=` | 실행 유저 | 본인 계정명 |
-| `WorkingDirectory=` | `deployment/openvino`의 절대경로 | `<repo 절대경로>/deployment/openvino` |
-| `ExecStart=` | uvicorn 실행 경로 | `which uvicorn` 결과로 교체 |
-
-**`ki67-frontend.service`**
-
-| 항목 | 의미 | 수정 예 |
-|------|------|---------|
-| `User=` | 실행 유저 | 본인 계정명 |
-| `WorkingDirectory=` | `frontend/.next/standalone`의 절대경로 | `<repo 절대경로>/frontend/.next/standalone` |
-| `ExecStart=` | node 실행 경로 | `which node` 결과로 교체 (nvm 사용 시 버전별 경로 주의) |
-
-> systemd 유닛 파일은 구조상 절대경로만 지원합니다. 위 두 항목만 예외적으로 절대경로를 사용하세요.
-
-수정 후 등록 및 활성화:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now ki67-inference.service
-sudo systemctl enable --now ki67-frontend.service
-```
-
----
-
-## 7. 실행 / 관리
+## 5. 실행 / 관리
 
 ### 이미 실행 중인지 확인
 
@@ -197,17 +143,17 @@ http://<서버 IP>:3000/realtime
 
 ### 코드 변경 후 재배포
 
-최초 설치가 끝난 뒤 코드가 바뀔 때마다 저장소 루트의 `deploy.sh`를 사용합니다.
+최초 설치(`--init`)가 끝난 뒤 코드가 바뀔 때마다 저장소 루트에서 인자 없이 실행합니다.
 
 ```bash
 ./deploy.sh
 ```
 
-> 스크립트 내부에 `REPO_DIR` 절대경로가 박혀 있으므로, 본인 환경의 clone 경로에 맞게 스크립트 상단을 수정해야 합니다.
+`git pull` → 프론트엔드 재빌드 → 두 systemd 서비스 재시작까지 자동으로 처리합니다. 저장소 경로는 스크립트가 자기 위치를 기준으로 자동 감지하므로 별도 수정이 필요 없습니다.
 
 ---
 
-## 8. 화면 구성
+## 6. 화면 구성
 
 ```
 ┌─────────────────────────────────────┬──────────────────────┐
@@ -224,7 +170,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 9. 사용 흐름
+## 7. 사용 흐름
 
 ### 1단계 — 이미지 업로드
 
@@ -264,7 +210,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 10. 편집
+## 8. 편집
 
 | 동작 | 방법 |
 |------|------|
@@ -278,7 +224,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 11. 줌 · 화면 이동
+## 9. 줌 · 화면 이동
 
 | 조작 | 효과 |
 |------|------|
@@ -288,7 +234,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 12. 단축키 전체 요약
+## 10. 단축키 전체 요약
 
 | 키 | 기능 |
 |----|------|
@@ -304,7 +250,7 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 13. 기술 정보
+## 11. 기술 정보
 
 | 항목 | 내용 |
 |------|------|
@@ -316,21 +262,10 @@ http://<서버 IP>:3000/realtime
 
 ---
 
-## 14. API 엔드포인트 (FastAPI, 포트 8000)
+## 12. API 엔드포인트 (FastAPI, 포트 8000)
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | POST | `/encode` | 이미지 업로드 → session_id 반환 (인코더 실행) |
 | POST | `/decode` | session_id + 좌표 → 마스크 반환 (디코더만 실행) |
 | POST | `/infer` | 이미지 + 좌표 → 마스크 (encode+decode 통합 fallback) |
-
----
-
-## 15. 문제 해결
-
-| 증상 | 확인 사항 |
-|------|-----------|
-| 8000번 포트 안 뜸 | `journalctl -u ki67-inference -f`, `encoder.bin`/`decoder.bin` 누락 여부 |
-| 3000번 포트 안 뜸 | `journalctl -u ki67-frontend -f`, `frontend/.next/standalone` 빌드 여부 |
-| 프론트는 뜨는데 추론 실패 | 8000 서버가 같이 떠 있는지, `frontend/app/api/*` 프록시가 8000을 가리키는지 확인 |
-| systemd 등록 후 실행 안 됨 | 유닛 파일의 `WorkingDirectory`/`ExecStart`가 절대경로로 올바르게 들어갔는지 확인 (systemd는 상대경로를 지원하지 않음) |
