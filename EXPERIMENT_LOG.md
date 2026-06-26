@@ -3,6 +3,10 @@
 EfficientViT-SAM L1(student)을 MedSAM ViT-B(teacher)로 knowledge distillation한 실험 기록.  
 distillation 기반 fine-tuning은 성능 불량으로 채택되지 않았으며, **배포 모델은 공식 EfficientViT-SAM L1 pretrained 가중치 기반 fine-tuning**을 사용한다.
 
+> **가중치 아카이브 (NAS)**  
+> - 릴리즈(배포) 가중치: `Archived/weight/DP_SAM/Released/openvino`  
+> - Knowledge Distillation 실험 가중치: `Archived/weight/DP_SAM/Knowledge_Distillation`
+
 ---
 
 ## 배포 파이프라인
@@ -264,31 +268,14 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 - **초기 loss 감소율**: 05-14 ▼50.9% / 06-12 ▼53.3%
 - **최종 loss**: 05-14가 0.00116 − 0.00111 = **0.000052 낮음 (약 4.5% 차이)**
 
-### 분석 및 해석
+### 분석
 
-**① Epoch 0 초기 loss 차이 (+10%)**
-
-06-12 run의 Epoch 0 loss가 0.002487로 05-14(0.002261)보다 10% 높다. Pathology_new 19,062개가 추가되어 데이터 pool이 다양해졌기 때문으로 해석된다. 병리 이미지(PanNuke, MoNuSeg)는 CT·XRay 등 다른 모달리티와 시각적 특성이 달라 초기 student 인코더가 더 높은 손실을 보이는 것이 자연스럽다.
-
-**② Epoch 1부터 loss 궤적 역전**
-
-Epoch 1에서 06-12(0.001490)와 05-14(0.001504)가 사실상 동등해지고, Epoch 2부터는 미세하게 05-14가 낮아진다. 이는 LR이 0.075 → 0.0375로 감소하면서 gradient update가 안정화되는 시점이 일치하기 때문으로 보인다.
-
-**③ 최종 loss 차이(0.000052)의 원인: gradient update 횟수**
-
-05-14는 총 400,000 gradient update, 06-12는 200,000 update. 동일한 limit_sample=400,000에서 epoch당 동일한 수의 샘플을 처리하지만, 05-14는 파라미터를 2배 더 업데이트했다. 최종 loss 차이 4.7%는 대부분 이 update 횟수 차이에서 기인한다.
-
-**④ batch_size 영향**
-
-batch_size=16이 8 대비 더 안정적인 gradient 추정을 제공하지만, update 횟수가 절반으로 줄어든 trade-off가 있다. 두 run 모두 동일 epoch당 총 샘플 수(400,000)를 처리하므로, loss 곡선 형태는 유사하다.
-
-**⑤ 병리 도메인 성능 차이 가능성**
-
-05-14는 Pathology_new를 전혀 학습하지 않았으므로, Ki-67 IHC 등 병리 이미지에 대해서는 06-12가 유리할 수 있다. 최종 loss는 MSE on image embeddings (전 모달리티 평균) 이므로 도메인별 성능은 별도 평가 필요.
-
-**⑥ 배포 채택 여부**
-
-두 run 모두 배포 모델(공식 pretrained 기반 fine-tuning)로는 채택되지 않음. 향후 distillation 기반 접근 재검토 시 06-12 체크포인트가 기준점.
+- **Epoch 0 초기 loss 차이 (+10%)**: Pathology_new 19,062개 추가로 데이터 다양성이 높아진 결과. CT·XRay와 시각적 특성이 다른 병리 이미지가 섞여 초기 손실이 높아지는 것은 자연스럽다.
+- **Epoch 1부터 궤적 수렴**: LR이 0.075 → 0.0375로 감소하면서 gradient update가 안정화되는 시점에 두 run의 loss가 거의 일치한다.
+- **최종 loss 차이 4.7%의 원인**: 05-14(400,000 updates) vs 06-12(200,000 updates) — epoch당 처리 샘플은 동일(400K)하지만 파라미터 업데이트 횟수가 2배 차이.
+- **batch_size 영향**: batch_size=16이 gradient 추정이 더 안정적이나 update 횟수가 절반. 두 run은 trade-off 관계.
+- **병리 도메인**: 05-14는 Pathology_new를 학습하지 않아 Ki-67 이미지 도메인에서는 06-12가 유리할 수 있으나 별도 평가 필요.
+- **배포 채택 여부**: 두 run 모두 배포 채택 안 됨. 향후 distillation 접근 재검토 시 06-12 체크포인트 기준점.
 
 ---
 
@@ -315,4 +302,4 @@ batch_size=16이 8 대비 더 안정적인 gradient 추정을 제공하지만, u
 ---
 
 *MLflow Experiment ID: `832243143508473923`* (tracking URI: `DP_MedificientSAM/logs/mlflow/mlruns/`, port 5001)  
-*DP_MedificientSAM 서브모듈 commit (06-12 run 기준): `b804e79d30dd87abda4cde777e9671ae72630efc`* (브랜치: `feat/distillation-config`, infinittAI/DP_MedificientSAM에 PR 머지 대기 중)
+*DP_MedificientSAM 서브모듈 commit (06-12 run 기준): `b804e79d30dd87abda4cde777e9671ae72630efc`* (브랜치: `feat/distillation-config`, PR #1 2026-06-23 머지 완료)

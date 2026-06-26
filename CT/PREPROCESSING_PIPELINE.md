@@ -140,41 +140,7 @@ raw_ver/
 
 ## 디렉토리 구조
 
-### 입력 (raw_ver)
-```
-/mnt/Disk1/sylee/CT/raw_ver/
-├── AbdomenCT-1K-ImagePart1/
-│   └── AbdomenCT-1K-ImagePart1/
-│       └── *.nii.gz                      ← 이미지 (중첩 디렉토리 구조)
-├── AbdomenCT-1K-ImagePart2/
-│   └── AbdomenCT-1K-ImagePart2/
-│       └── *.nii.gz
-├── AbdomenCT-1K-ImagePart3/
-│   └── AbdomenCT-1K-ImagePart3/
-│       └── *.nii.gz
-├── Mask/
-│   └── *.nii.gz                          ← AbdomenCT-1K GT 마스크
-├── amos22/amos22/
-│   ├── imagesTr/
-│   │   └── amos_XXXX.nii.gz
-│   └── labelsTr/
-│       └── amos_XXXX.nii.gz
-├── COVID-19-20_v2/Train/
-│   ├── *_ct.nii.gz                       ← 이미지
-│   └── *_seg.nii.gz                      ← GT 마스크
-├── kits23/dataset/
-│   └── case_XXXXX/
-│       ├── imaging.nii.gz
-│       └── segmentation.nii.gz
-└── Totalsegmentator_dataset_v201/
-    └── sXXXX/
-        ├── ct.nii.gz
-        └── segmentations/
-            ├── spleen.nii.gz
-            ├── liver.nii.gz
-            ├── kidney_right.nii.gz
-            └── ...                       ← 장기별 binary 마스크
-```
+원본(`raw_ver/`) 구조는 위 섹션 참고.
 
 ### 중간 (refine_ver) — symlink 기반 통일 구조
 ```

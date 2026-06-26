@@ -1,14 +1,8 @@
-# E11_holdout FP32 OpenVINO deployment package
+# Ki67 Nucleus Segmentation — FP32 OpenVINO
 
-Ki67 nucleus instance segmentation, point-prompt only. Distilled from MedSAM
-(efficientvit-l1 image encoder + MedSAM vit_b prompt/mask decoder), fine-tuned
-on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg, 818 Ki67 tiles held
-out; PanNuke and MoNuSeg added for pathology domain supplementation via challenge Google Sheet), decoder-only training, then exported to ONNX and converted to OpenVINO
-FP32 IR.
+EfficientViT-L1 encoder + SAM ViT-B decoder, fine-tuned on Ki67 + PanNuke + MoNuSeg, exported to ONNX and converted to OpenVINO FP32 IR. Point-prompt only.
 
-This package is the **latency-oriented** deployment. For the smaller (~53 MB)
-INT8 ONNX variant with equivalent accuracy, see the sibling `e11_holdout_int8/`
-package — it's ~3.5× smaller on disk but ~1.65× slower e2e on Intel CPU.
+**현재 운영 배포 버전.** INT8 ONNX 대비 e2e 5× 빠름 (디스크 크기는 ~187 MB vs ~53 MB). INT8 ONNX 버전은 [`../onnx/`](../onnx/)를 참고.
 
 ## Files (copy all into a single directory)
 
@@ -130,14 +124,6 @@ cost (~10 ms per instance) — feels real-time.
   - k=5 clicks: ~0.76
 - **Box prompts are not supported** by this decoder. If you need bounding-box
   inference, request the box-capable export separately.
-
-## Numerical equivalence
-
-This IR was verified against the PyTorch reference (binary-mask IoU
-≥ 0.9994 on synthetic prompts across N=1/2 × K=1/3 cases — only encoder
-embedding max_abs diff ~5e-6, decoder logit max_abs ~3e-2 but threshold>0
-agreement essentially perfect). See `tools/verify_export_e11_holdout.py`
-in the training repository for the equivalence harness.
 
 ## Quick sanity check
 

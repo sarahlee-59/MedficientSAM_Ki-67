@@ -7,8 +7,7 @@ EfficientViT-SAM L1 pretrained → Ki-67 Fine-tuning → OpenVINO FP32 배포, �
 
 ## 레포지토리 구조
 
-> 아래는 GitHub 레포지토리에 실제로 올라가 있는 파일만 기준으로 정리한 구조입니다.
-> 가중치·데이터셋·모델 바이너리(.pth/.onnx/.bin) 등 용량이 큰 산출물은 .gitignore 처리되어 있어 제외했습니다.
+> 가중치·데이터셋·모델 바이너리(.pth/.onnx/.bin)는 `.gitignore` 처리되어 제외.
 
 ```
 .
@@ -163,7 +162,7 @@ NPZ 파일 포맷: `{"imgs": (H,W,3) uint8, "gts": (H,W) int32}` (3D 볼륨: img
 
 ## 배포 패키지
 
-> ONNX 모델 파일은 GitHub Releases에서 다운로드 후 `deployment/`에 배치.
+> 배포 가중치(`.bin`)는 NAS `Archived/weight/DP_SAM/Released/openvino` 에서 받아 `deployment/openvino/` 에 배치. (ONNX INT8 버전은 `Archived/weight/DP_SAM/Released/onnx`)
 
 사용법 및 API 상세:
 - ONNX INT8: [`deployment/onnx/README.md`](deployment/onnx/README.md)

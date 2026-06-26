@@ -1,9 +1,6 @@
-# E11_holdout INT8 ONNX deployment package
+# Ki67 Nucleus Segmentation — INT8 ONNX
 
-Ki67 nucleus instance segmentation, point-prompt only. Distilled from MedSAM
-(efficientvit-l1 image encoder + MedSAM vit_b prompt/mask decoder), fine-tuned
-on combined nucleus dataset (Ki67 + PanNuke + MoNuSeg, 818 Ki67 tiles held
-out; PanNuke and MoNuSeg added for pathology domain supplementation via challenge Google Sheet), decoder-only training, then exported to ONNX and INT8 dynamic-quantized.
+EfficientViT-L1 encoder + SAM ViT-B decoder, fine-tuned on Ki67 + PanNuke + MoNuSeg, exported to ONNX and INT8 dynamic-quantized. Point-prompt only.
 
 ## Files (copy all into a single directory)
 
@@ -60,13 +57,13 @@ uvicorn server:app --host 0.0.0.0 --port 8000
 
 ```json
 {
-  "mask": [0, 1, 0, ...],
+  "mask_b64": "<base64 encoded uint8 flat array>",
   "width": 256,
   "height": 256
 }
 ```
 
-`mask`는 `(H × W)` 크기의 uint8 flat 배열 (0 또는 1)입니다.
+`mask_b64`를 base64 디코딩하면 `(H × W)` 크기의 uint8 배열 (0 또는 1)입니다.
 
 서버는 이미지 MD5 해시 기준으로 인코더 임베딩을 캐시합니다. 같은 이미지에서 반복 클릭 시 인코더를 한 번만 실행합니다.
 
