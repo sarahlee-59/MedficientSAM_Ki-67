@@ -268,15 +268,6 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 - **초기 loss 감소율**: 05-14 ▼50.9% / 06-12 ▼53.3%
 - **최종 loss**: 05-14가 0.00116 − 0.00111 = **0.000052 낮음 (약 4.5% 차이)**
 
-### 분석
-
-- **Epoch 0 초기 loss 차이 (+10%)**: Pathology_new 19,062개 추가로 데이터 다양성이 높아진 결과. CT·XRay와 시각적 특성이 다른 병리 이미지가 섞여 초기 손실이 높아지는 것은 자연스럽다.
-- **Epoch 1부터 궤적 수렴**: LR이 0.075 → 0.0375로 감소하면서 gradient update가 안정화되는 시점에 두 run의 loss가 거의 일치한다.
-- **최종 loss 차이 4.7%의 원인**: 05-14(400,000 updates) vs 06-12(200,000 updates) — epoch당 처리 샘플은 동일(400K)하지만 파라미터 업데이트 횟수가 2배 차이.
-- **batch_size 영향**: batch_size=16이 gradient 추정이 더 안정적이나 update 횟수가 절반. 두 run은 trade-off 관계.
-- **병리 도메인**: 05-14는 Pathology_new를 학습하지 않아 Ki-67 이미지 도메인에서는 06-12가 유리할 수 있으나 별도 평가 필요.
-- **배포 채택 여부**: 두 run 모두 배포 채택 안 됨. 향후 distillation 접근 재검토 시 06-12 체크포인트 기준점.
-
 ---
 
 ## 코드 수정 이력 (이 프로젝트에서 변경한 사항)
@@ -293,11 +284,8 @@ FileNotFoundError: .../train_npz/Pathology_new/gts_npz_s128/
 
 ## 재현 주의사항
 
-1. **Pathology_new 사용 전 무결성 검증
- 필수**: 2026-05-13 당시 `train_npz/Pathology_new/gts_npz_s128/` 내 다수 파일 누락으로 Epoch 2에서 FileNotFoundError 발생. 2026-06-12 재학습 시 19,062개 전량 검증 완료 후 포함. 재현 시 `numpy.load` + key 확인으로 사전 검증 권장.
-2. **batch_size 선택**: 05-14 run은 batch_size=8 (50,000 steps/epoch), 06-12 run은 batch_size=16 (25,000 steps/epoch) — 둘 다 성공. GPU 메모리(H100 80GB)에서 batch_size=16 정상 동작 확인됨.
-3. **ckpt_path=None**: 설정이 다른 run의 checkpoint에서 resume하면 데이터 분포 불일치로 학습 불안정. 항상 scratch로 시작 권장.
-4. **albumentations 버전**: 2.0.8에서 `A.TransformType` 제거됨. `A.BasicTransform`으로 교체 완료 (`medsam_dataset.py:68`).
+1. **Pathology_new 사용 전 무결성 검증 필수**: 2026-05-13 당시 `train_npz/Pathology_new/gts_npz_s128/` 내 다수 파일 누락으로 Epoch 2에서 FileNotFoundError 발생. 2026-06-12 재학습 시 19,062개 전량 검증 완료 후 포함. 재현 시 `numpy.load` + key 확인으로 사전 검증 권장.
+2. **ckpt_path=None**: 설정이 다른 run의 checkpoint에서 resume하면 데이터 분포 불일치로 학습 불안정. 항상 scratch로 시작 권장.
 
 ---
 
